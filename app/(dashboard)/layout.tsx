@@ -7,17 +7,19 @@ import {
   Users,
   DollarSign,
   Database,
+  Home,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
 const navItems = [
-  { href: '/inbox', label: 'Inbox', icon: Inbox },
-  { href: '/reservations', label: 'Réservations', icon: Calendar },
-  { href: '/menage', label: 'Ménage', icon: Sparkles },
-  { href: '/sav', label: 'SAV', icon: Wrench },
-  { href: '/proprietaires', label: 'Propriétaires', icon: Users },
-  { href: '/finance', label: 'Finance', icon: DollarSign },
-  { href: '/crm', label: 'CRM', icon: Database },
+  { href: '/inbox',        label: 'Inbox',         icon: Inbox    },
+  { href: '/reservations', label: 'Réservations',   icon: Calendar },
+  { href: '/properties',   label: 'Logements',      icon: Home     },
+  { href: '/menage',       label: 'Ménage',         icon: Sparkles },
+  { href: '/sav',          label: 'SAV',            icon: Wrench   },
+  { href: '/proprietaires',label: 'Propriétaires',  icon: Users    },
+  { href: '/finance',      label: 'Finance',        icon: DollarSign },
+  { href: '/crm',          label: 'CRM',            icon: Database },
 ]
 
 export default function DashboardLayout({
