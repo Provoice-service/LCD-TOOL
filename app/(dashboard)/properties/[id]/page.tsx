@@ -10,13 +10,21 @@ export default async function PropertyDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: property, error } = await supabase
-    .from('properties')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const [{ data: property, error }, { data: conditionalInfo }] = await Promise.all([
+    supabase.from('properties').select('*').eq('id', id).single(),
+    supabase
+      .from('property_conditional_info')
+      .select('*')
+      .eq('property_id', id)
+      .order('created_at', { ascending: true }),
+  ])
 
   if (error || !property) notFound()
 
-  return <PropertyFormClient property={property} />
+  return (
+    <PropertyFormClient
+      property={property}
+      initialConditionalInfo={conditionalInfo ?? []}
+    />
+  )
 }
