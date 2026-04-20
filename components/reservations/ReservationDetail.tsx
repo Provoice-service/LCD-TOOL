@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,9 +18,41 @@ import {
   MapPin,
   Phone,
   Calendar,
+  IdCard,
+  Upload,
+  Send,
+  Users,
+  RefreshCw,
+  ExternalLink,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+
+// ---------------------------------------------------------------------------
+// Types locaux
+// ---------------------------------------------------------------------------
+
+interface PropertyDocument {
+  id: string
+  document_type: 'passport' | 'cni' | 'contract' | 'other'
+  file_url: string | null
+  file_name: string | null
+  received_via: string | null
+  received_at: string
+  verified: boolean
+}
+
+interface SyndicNotification {
+  id: string
+  status: 'pending' | 'sent' | 'delivered' | 'failed'
+  sent_at: string | null
+  syndic_phone: string
+  syndic_name: string | null
+  documents_sent: string[]
+  message_sent: string | null
+  created_at: string
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,6 +99,13 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
   const [accessResult, setAccessResult] = useState<AccessResult | null>(null)
   const [copied, setCopied] = useState(false)
   const [updatingKey, setUpdatingKey] = useState<string | null>(null)
+  const [documents, setDocuments]     = useState<PropertyDocument[]>([])
+  const [syndicNotifs, setSyndicNotifs] = useState<SyndicNotification[]>([])
+  const [docsLoaded, setDocsLoaded]   = useState(false)
+  const [sendingSyndic, setSendingSyndic] = useState(false)
+  const [syndicResult, setSyndicResult]   = useState<string | null>(null)
+  const [uploading, setUploading]     = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const doneCount = CHECKLIST_ITEMS.filter((item) => res[item.key]).length
   const lockType = res.access_type_override ?? res.property?.access_type ?? 'key_box'
@@ -127,6 +166,75 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
   }
 
   const displayedCode = accessResult?.code ?? res.access_code
+
+  async function loadDocuments() {
+    if (docsLoaded) return
+    const supabase = createClient()
+    const [{ data: docs }, { data: notifs }] = await Promise.all([
+      supabase
+        .from('property_documents')
+        .select('id, document_type, file_url, file_name, received_via, received_at, verified')
+        .eq('reservation_id', res.id)
+        .order('received_at', { ascending: false }),
+      supabase
+        .from('syndic_notifications')
+        .select('id, status, sent_at, syndic_phone, syndic_name, documents_sent, message_sent, created_at')
+        .eq('reservation_id', res.id)
+        .order('created_at', { ascending: false }),
+    ])
+    setDocuments((docs ?? []) as PropertyDocument[])
+    setSyndicNotifs((notifs ?? []) as SyndicNotification[])
+    setDocsLoaded(true)
+  }
+
+  async function uploadDocument(file: File, docType: string) {
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('reservation_id', res.id)
+    fd.append('document_type', docType)
+    fd.append('received_via', 'manual_upload')
+    const r = await fetch('/api/documents/upload', { method: 'POST', body: fd })
+    const data = await r.json()
+    if (data.document_id) {
+      setDocsLoaded(false)
+      await loadDocuments()
+    }
+    setUploading(false)
+  }
+
+  async function sendSyndic(force: boolean) {
+    setSendingSyndic(true)
+    setSyndicResult(null)
+    const r = await fetch('/api/syndic/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reservation_id: res.id, force }),
+    })
+    const data = await r.json()
+    setSyndicResult(
+      data.success
+        ? `✅ Envoyé avec succès (notification ${data.notification_id?.slice(0, 8)}…)`
+        : data.skipped
+          ? `⏭ Ignoré : ${data.skipped}`
+          : `❌ Erreur : ${data.error}`
+    )
+    setSendingSyndic(false)
+    setDocsLoaded(false)
+    await loadDocuments()
+  }
+
+  const DOC_LABEL: Record<string, string> = { passport: 'Passeport', cni: 'CNI', contract: 'Contrat', other: 'Autre' }
+  const VIA_LABEL: Record<string, string>  = { whatsapp: 'WhatsApp', airbnb_message: 'Airbnb', email: 'Email', manual_upload: 'Upload' }
+  const SYNDIC_STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+    pending: 'secondary', sent: 'default', delivered: 'default', failed: 'destructive',
+  }
+  const SYNDIC_STATUS_LABEL: Record<string, string> = {
+    pending: 'En attente', sent: 'Envoyé', delivered: 'Livré', failed: 'Échoué',
+  }
+
+  const latestNotif = syndicNotifs[0] ?? null
+  const syndicRequired = res.property?.syndic_required ?? false
 
   return (
     <div className="h-full overflow-y-auto">
@@ -318,6 +426,188 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
             </div>
           </>
         )}
+
+        {/* ── Documents & Syndic ───────────────────────────────────────────── */}
+        <Separator />
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <IdCard className="h-4 w-4" />
+              Documents &amp; Syndic
+            </h3>
+            {!docsLoaded && (
+              <Button variant="outline" size="sm" onClick={loadDocuments}>
+                Charger
+              </Button>
+            )}
+          </div>
+
+          {docsLoaded && (
+            <div className="space-y-5">
+              {/* ── Sous-section Documents reçus ──────────────────────────── */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Documents reçus</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) uploadDocument(f, 'passport')
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="gap-1.5 h-7 text-xs"
+                    >
+                      {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                      Upload manuel
+                    </Button>
+                  </div>
+                </div>
+
+                {documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-3 text-center border rounded-lg">
+                    Aucun document reçu pour cette réservation.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm">
+                        <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                          doc.document_type === 'contract' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                        }`}>
+                          {doc.document_type === 'contract'
+                            ? <FileText className="h-4 w-4" />
+                            : <IdCard className="h-4 w-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">{DOC_LABEL[doc.document_type] ?? doc.document_type}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {VIA_LABEL[doc.received_via ?? ''] ?? doc.received_via ?? '—'}
+                            {' · '}
+                            {format(new Date(doc.received_at), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {doc.verified && (
+                            <Badge variant="outline" className="text-green-700 border-green-300 text-xs">Vérifié</Badge>
+                          )}
+                          {doc.file_url && (
+                            <a
+                              href={doc.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              {doc.file_name?.match(/\.(jpg|jpeg|png|webp)$/i)
+                                ? <ImageIcon className="h-4 w-4" />
+                                : <ExternalLink className="h-4 w-4" />}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Sous-section Syndic ───────────────────────────────────── */}
+              {syndicRequired && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Syndic / Gardien</p>
+                  <div className="p-4 rounded-lg border space-y-3">
+                    {/* Infos syndic */}
+                    <div className="flex items-center gap-3">
+                      <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">
+                          {res.property?.syndic_name ?? 'Syndic / Gardien'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{res.property?.syndic_phone ?? '—'}</p>
+                      </div>
+                      {latestNotif && (
+                        <Badge variant={SYNDIC_STATUS_VARIANT[latestNotif.status]} className="ml-auto">
+                          {SYNDIC_STATUS_LABEL[latestNotif.status]}
+                        </Badge>
+                      )}
+                      {!latestNotif && (
+                        <Badge variant="secondary" className="ml-auto">En attente</Badge>
+                      )}
+                    </div>
+
+                    {/* Dernier envoi */}
+                    {latestNotif?.sent_at && (
+                      <p className="text-xs text-muted-foreground">
+                        Envoyé le {format(new Date(latestNotif.sent_at), 'dd/MM/yyyy à HH:mm', { locale: fr })}
+                        {latestNotif.documents_sent.length > 0 && (
+                          <span> · {latestNotif.documents_sent.length} document(s)</span>
+                        )}
+                      </p>
+                    )}
+
+                    {/* Résultat action */}
+                    {syndicResult && (
+                      <p className="text-xs rounded-md bg-muted px-3 py-2">{syndicResult}</p>
+                    )}
+
+                    {/* Boutons */}
+                    <div className="flex gap-2">
+                      {!latestNotif || latestNotif.status === 'failed' ? (
+                        <Button
+                          size="sm"
+                          onClick={() => sendSyndic(true)}
+                          disabled={sendingSyndic}
+                          className="gap-1.5"
+                        >
+                          {sendingSyndic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                          Envoyer maintenant
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => sendSyndic(true)}
+                          disabled={sendingSyndic}
+                          className="gap-1.5"
+                        >
+                          {sendingSyndic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                          Renvoyer
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Historique */}
+                    {syndicNotifs.length > 1 && (
+                      <details className="mt-1">
+                        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                          Historique ({syndicNotifs.length} envois)
+                        </summary>
+                        <div className="mt-2 space-y-1.5">
+                          {syndicNotifs.map((n) => (
+                            <div key={n.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Badge variant={SYNDIC_STATUS_VARIANT[n.status]} className="text-xs h-4 px-1.5">
+                                {SYNDIC_STATUS_LABEL[n.status]}
+                              </Badge>
+                              <span>{n.sent_at ? format(new Date(n.sent_at), 'dd/MM HH:mm') : '—'}</span>
+                              <span>· {n.documents_sent.length} doc(s)</span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
       </div>
     </div>

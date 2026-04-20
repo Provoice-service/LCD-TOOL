@@ -42,6 +42,9 @@ export interface ReservationRow {
     wifi_name: string | null
     wifi_pass: string | null
     house_rules: string | null
+    syndic_required: boolean
+    syndic_name: string | null
+    syndic_phone: string | null
   } | null
 }
 

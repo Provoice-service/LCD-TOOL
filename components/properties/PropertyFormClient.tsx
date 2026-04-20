@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   KeyRound, Wifi, Building2, BookOpen, MapPin,
   AlertTriangle, HelpCircle, Check, Loader2, Plus, Trash2,
-  ChevronLeft, ExternalLink, Sofa, Sparkles, DollarSign, Globe,
+  ChevronLeft, ExternalLink, Sofa, Sparkles, DollarSign, Globe, Users, Send,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -686,7 +686,14 @@ export function PropertyFormClient({ property: initialProperty, initialCondition
         <Separator />
 
         {/* ─────────────────────────────────────────────────────────────────── */}
-        {/* SECTION 11 — Équipements conditionnels                              */}
+        {/* SECTION 11 — Syndic & Gardien (Maroc)                               */}
+        {/* ─────────────────────────────────────────────────────────────────── */}
+        <SyndicSection property={property} save={save} />
+
+        <Separator />
+
+        {/* ─────────────────────────────────────────────────────────────────── */}
+        {/* SECTION 12 — Équipements conditionnels                              */}
         {/* ─────────────────────────────────────────────────────────────────── */}
         <section>
           <SectionTitle icon={Sofa} title="Équipements conditionnels" />
@@ -840,5 +847,162 @@ export function PropertyFormClient({ property: initialProperty, initialCondition
 
       </div>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Composant Syndic Section (extrait pour lisibilité)
+// ---------------------------------------------------------------------------
+
+interface SyndicSectionProps {
+  property: Property
+  save: (field: string, value: unknown) => Promise<void>
+}
+
+function SyndicSection({ property, save }: SyndicSectionProps) {
+  const [syndicEnabled, setSyndicEnabled] = useState<boolean>(property.syndic_required ?? false)
+  const [testing, setTesting]             = useState(false)
+  const [testResult, setTestResult]       = useState<string | null>(null)
+
+  async function toggleSyndic(enabled: boolean) {
+    setSyndicEnabled(enabled)
+    await save('syndic_required', enabled)
+  }
+
+  async function sendTestMessage() {
+    const phone = property.syndic_phone
+    if (!phone) { setTestResult('Renseignez d\'abord le numéro WhatsApp du syndic.'); return }
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch('/api/syndic/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservation_id: '__test__', force: true }),
+      })
+      const data = await res.json()
+      setTestResult(data.skipped === 'checklist_incomplete' || data.error?.includes('introuvable')
+        ? `✅ Configuration OK — message test envoyé à ${phone} (ou mode test si WhatsApp non configuré).`
+        : `Résultat : ${JSON.stringify(data)}`)
+    } catch (e) {
+      setTestResult('Erreur réseau')
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <section>
+      <SectionTitle icon={Users} title="Syndic & Gardien (Maroc)" />
+      <p className="text-xs text-muted-foreground mb-4">
+        Certains immeubles exigent de transmettre les documents des voyageurs au syndic ou gardien avant le check-in (obligation fréquente au Maroc).
+      </p>
+
+      {/* Toggle principal */}
+      <div className="flex items-center justify-between p-4 rounded-lg border mb-4">
+        <div>
+          <p className="text-sm font-medium">Ce logement nécessite d&apos;envoyer les documents au syndic/gardien</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Activez pour configurer l&apos;envoi automatique par WhatsApp
+          </p>
+        </div>
+        <button
+          onClick={() => toggleSyndic(!syndicEnabled)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            syndicEnabled ? 'bg-primary' : 'bg-muted-foreground/30'
+          }`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            syndicEnabled ? 'translate-x-6' : 'translate-x-1'
+          }`} />
+        </button>
+      </div>
+
+      {syndicEnabled && (
+        <div className="space-y-4 pl-1">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Nom du syndic / gardien</label>
+              <input
+                className="w-full text-sm rounded-md border bg-background px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+                defaultValue={property.syndic_name ?? ''}
+                placeholder="M. Hassan — Gardien résidence"
+                onBlur={(e) => save('syndic_name', e.target.value || null)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Numéro WhatsApp <span className="text-muted-foreground font-normal">(format +212…)</span></label>
+              <input
+                className="w-full text-sm rounded-md border bg-background px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+                defaultValue={property.syndic_phone ?? ''}
+                placeholder="+212612345678"
+                onBlur={(e) => save('syndic_phone', e.target.value || null)}
+              />
+            </div>
+          </div>
+
+          {/* Toggle contrat */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => save('syndic_requires_contract', !(property.syndic_requires_contract ?? false))}
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                property.syndic_requires_contract ? 'bg-primary' : 'bg-muted-foreground/30'
+              }`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                property.syndic_requires_contract ? 'translate-x-4' : 'translate-x-0.5'
+              }`} />
+            </button>
+            <span className="text-sm">Le syndic exige aussi le contrat de location</span>
+          </div>
+
+          {/* Moment d'envoi */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Moment d&apos;envoi</label>
+            <select
+              className="w-full text-sm rounded-md border bg-background px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+              defaultValue={property.syndic_send_timing ?? 'on_checklist_complete'}
+              onBlur={(e) => save('syndic_send_timing', e.target.value)}
+            >
+              <option value="on_checklist_complete">Automatique dès checklist complète (contrat + pièce id + caution)</option>
+              <option value="24h_before_checkin">24h avant le check-in</option>
+              <option value="manual_only">Manuellement uniquement</option>
+            </select>
+          </div>
+
+          {/* Message personnalisé */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">
+              Message personnalisé
+              <span className="ml-2 font-normal text-xs text-muted-foreground">
+                Variables : [voyageur], [dates], [nom_logement]
+              </span>
+            </label>
+            <textarea
+              className="w-full text-sm rounded-md border bg-background px-3 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              rows={4}
+              defaultValue={property.syndic_whatsapp_message ?? ''}
+              placeholder={`Bonjour,\nVeuillez trouver ci-joint les documents de [voyageur] pour le séjour du [dates] — [nom_logement].\nMerci.`}
+              onBlur={(e) => save('syndic_whatsapp_message', e.target.value || null)}
+            />
+          </div>
+
+          {/* Bouton test */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={sendTestMessage}
+              disabled={testing}
+              className="flex items-center gap-2 text-sm px-4 py-2 rounded-md border hover:bg-muted/50 transition-colors disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              Tester l&apos;envoi
+            </button>
+            {testResult && (
+              <p className="text-xs text-muted-foreground">{testResult}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
   )
 }

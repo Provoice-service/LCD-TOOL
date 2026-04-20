@@ -11,7 +11,7 @@ export default async function ReservationsPage() {
       contract_signed, id_received, deposit_ok, access_code_sent,
       access_code, access_type_override,
       guest:guests(id, full_name, phone, language),
-      property:properties(id, name, city, access_type, tuya_device_id, wifi_name, wifi_pass, house_rules)
+      property:properties(id, name, city, access_type, tuya_device_id, wifi_name, wifi_pass, house_rules, syndic_required, syndic_name, syndic_phone)
     `)
     .order('check_in', { ascending: true })
 
