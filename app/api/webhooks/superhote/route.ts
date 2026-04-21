@@ -199,7 +199,46 @@ export async function POST(request: NextRequest) {
     }
 
     // ------------------------------------------------------------------
-    // 8. Succès
+    // 8. Tâche urgente si check-in dans moins de 48h
+    // ------------------------------------------------------------------
+    if (res.check_in && (res.status ?? 'confirmed') === 'confirmed') {
+      const checkInMs  = new Date(res.check_in).getTime()
+      const nowMs      = Date.now()
+      const hours48    = 48 * 60 * 60 * 1000
+
+      if (checkInMs - nowMs <= hours48 && checkInMs > nowMs) {
+        const checkInDate = res.check_in.slice(0, 10)
+        // Vérifier qu'une tâche agenda n'existe pas déjà pour cette réservation
+        const { data: existingTask } = await supabase
+          .from('tasks')
+          .select('id')
+          .eq('reservation_id', reservation.id)
+          .eq('category', 'voyageur')
+          .maybeSingle()
+
+        if (!existingTask) {
+          const { error: taskErr } = await supabase.from('tasks').insert({
+            title:          `Arrivée imminente — ${guestName}`,
+            category:       'voyageur',
+            priority:       'urgent_important',
+            reservation_id: reservation.id,
+            property_id:    property.id,
+            due_date:       checkInDate,
+            status:         'todo',
+          })
+          if (taskErr) {
+            console.error('[Superhote] ✗ Création tâche urgente:', taskErr.message)
+          } else {
+            console.log('[Superhote] ✓ Tâche urgente créée pour check-in', checkInDate)
+          }
+        } else {
+          console.log('[Superhote] → Tâche agenda déjà existante, skipped')
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // 9. Succès
     // ------------------------------------------------------------------
     console.log('[Superhote] ✓ Traitement terminé')
     return Response.json({ success: true })

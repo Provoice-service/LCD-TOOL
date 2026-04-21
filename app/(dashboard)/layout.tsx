@@ -12,11 +12,14 @@ import {
   BarChart2,
   Globe,
   TrendingUp,
+  ClipboardList,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import { createClient } from '@/lib/supabase/server'
 
 const navItems = [
   { href: '/inbox',         label: 'Inbox',           icon: Inbox      },
+  { href: '/agenda',        label: 'Agenda',          icon: ClipboardList },
   { href: '/reservations',  label: 'Réservations',    icon: Calendar   },
   { href: '/properties',    label: 'Logements',       icon: Home       },
   { href: '/menage',        label: 'Ménage',          icon: Sparkles   },
@@ -32,11 +35,18 @@ const crmSubItems = [
   { href: '/crm#expansion', label: 'Expansion',       icon: Globe      },
 ]
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const supabase = await createClient()
+  const { count: urgentCount } = await supabase
+    .from('tasks')
+    .select('*', { count: 'exact', head: true })
+    .eq('priority', 'urgent_important')
+    .not('status', 'in', '("done","cancelled")')
+
   return (
     <div className="flex h-screen">
       <aside className="w-60 shrink-0 border-r bg-sidebar flex flex-col">
@@ -55,7 +65,12 @@ export default function DashboardLayout({
                   className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.href === '/agenda' && (urgentCount ?? 0) > 0 && (
+                    <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none">
+                      {urgentCount}
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}

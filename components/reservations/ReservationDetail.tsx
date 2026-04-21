@@ -25,6 +25,7 @@ import {
   RefreshCw,
   ExternalLink,
   Image as ImageIcon,
+  ClipboardList,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -426,6 +427,31 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
             </div>
           </>
         )}
+
+        {/* ── Créer une tâche ──────────────────────────────────────────────── */}
+        <Separator />
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+            onClick={async () => {
+              const supabase = createClient()
+              await supabase.from('tasks').insert({
+                title:          `Vérifier dossier — ${res.guest?.full_name ?? 'Voyageur'} · ${res.property?.name ?? ''}`,
+                category:       'voyageur',
+                priority:       'urgent_important',
+                reservation_id: res.id,
+                property_id:    res.property?.id ?? null,
+                due_date:       res.check_in ? new Date(res.check_in).toISOString().slice(0, 10) : null,
+                status:         'todo',
+              })
+            }}
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Créer une tâche liée à cette réservation
+          </Button>
+        </div>
 
         {/* ── Documents & Syndic ───────────────────────────────────────────── */}
         <Separator />

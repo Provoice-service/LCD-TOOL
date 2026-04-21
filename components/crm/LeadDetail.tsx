@@ -11,7 +11,7 @@ import { STAGES, PRIORITY_CONFIG, SOURCE_CONFIG, PIPELINE_LABELS } from '@/compo
 import {
   X, Phone, Mail, MessageCircle, Calendar, ChevronDown,
   AlertTriangle, Plus, Loader2, Clock, CheckCircle2,
-  FileText, Users, Megaphone, Video, MapPin, Send,
+  FileText, Users, Megaphone, Video, MapPin, Send, ClipboardList,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -329,6 +329,20 @@ export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
             <Button size="sm" variant="outline" className="gap-1.5"><Mail className="h-3.5 w-3.5" />Email</Button>
           </a>
         )}
+        <Button size="sm" variant="outline" className="gap-1.5"
+          onClick={async () => {
+            const supabase = createClient()
+            await supabase.from('tasks').insert({
+              title: `Relance — ${lead.full_name ?? lead.company_name ?? 'Lead'}`,
+              category: 'commercial',
+              priority: lead.pipeline_type === 'service_client' ? 'urgent_important' : 'important',
+              lead_id: lead.id,
+              due_date: lead.next_action_date ?? new Date().toISOString().slice(0, 10),
+              status: 'todo',
+            })
+          }}>
+          <ClipboardList className="h-3.5 w-3.5" />Créer une tâche
+        </Button>
         <Button size="sm" variant="destructive" className="gap-1.5 ml-auto" onClick={() => setLostDialog(true)}>
           <AlertTriangle className="h-3.5 w-3.5" />Marquer perdu
         </Button>
