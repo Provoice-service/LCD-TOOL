@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -845,8 +845,206 @@ export function PropertyFormClient({ property: initialProperty, initialCondition
           )}
         </section>
 
+        <Separator />
+
+        {/* ─────────────────────────────────────────────────────────────────── */}
+        {/* SECTION — Process liés à ce logement                               */}
+        {/* ─────────────────────────────────────────────────────────────────── */}
+        <PropertyProcessSection property={property} />
+
       </div>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Composant Process Section
+// ---------------------------------------------------------------------------
+
+function PropertyProcessSection({ property }: { property: Property }) {
+  const [processes, setProcesses] = useState<any[]>([])
+  const [loading, setLoading]     = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [generated, setGenerated]   = useState(false)
+
+  async function loadProcesses() {
+    setLoading(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('process_library')
+      .select('id, process_name, category, status, variables_used, parent_process_id')
+      .eq('property_id', property.id)
+      .eq('is_template', false)
+      .order('category')
+    setProcesses(data ?? [])
+    setLoading(false)
+  }
+
+  async function generateStandardProcesses() {
+    if (!property.access_type) return
+    setGenerating(true)
+    const supabase = createClient()
+
+    // Charger les templates applicables
+    const filters: any[] = []
+    if (property.access_type) filters.push(`access_type_applicable.cs.{"${property.access_type}"}`)
+    if (property.country)     filters.push(`country_applicable.cs.{"${property.country}"}`)
+
+    const { data: templates } = await supabase
+      .from('process_library')
+      .select('*')
+      .eq('is_template', true)
+      .not('number', 'is', null)
+      .gte('number', 200)
+
+    if (templates && templates.length > 0) {
+      const applicable = templates.filter((t: any) => {
+        const accessOk  = !t.access_type_applicable?.length || t.access_type_applicable.includes(property.access_type)
+        const countryOk = !t.country_applicable?.length || t.country_applicable.includes(property.country ?? 'FR')
+        return accessOk && countryOk
+      })
+
+      for (const template of applicable) {
+        // Vérifier qu'il n'existe pas déjà
+        const { data: existing } = await supabase
+          .from('process_library')
+          .select('id')
+          .eq('property_id', property.id)
+          .eq('parent_process_id', template.id)
+          .single()
+
+        if (!existing) {
+          const { data: newProc } = await supabase.from('process_library').insert({
+            number:                  template.number + 1000,
+            category:                template.category,
+            process_name:            `${template.process_name} — ${property.name}`,
+            description:             template.description,
+            priority:                template.priority,
+            status:                  template.status,
+            is_template:             false,
+            property_id:             property.id,
+            parent_process_id:       template.id,
+            access_type_applicable:  template.access_type_applicable,
+            country_applicable:      template.country_applicable,
+            content:                 template.content,
+            variables_used:          template.variables_used,
+          }).select().single()
+
+          if (newProc) {
+            const { data: steps } = await supabase
+              .from('process_steps')
+              .select('*')
+              .eq('process_id', template.id)
+              .order('step_number')
+
+            if (steps && steps.length > 0) {
+              await supabase.from('process_steps').insert(
+                steps.map((s: any) => ({
+                  process_id:        (newProc as any).id,
+                  step_number:       s.step_number,
+                  title:             s.title,
+                  instruction:       s.instruction,
+                  responsible:       s.responsible,
+                  tool_needed:       s.tool_needed,
+                  estimated_minutes: s.estimated_minutes,
+                  is_automated:      s.is_automated,
+                  automation_module: s.automation_module,
+                }))
+              )
+            }
+          }
+        }
+      }
+    }
+
+    setGenerated(true)
+    setGenerating(false)
+    loadProcesses()
+  }
+
+  // Charger au montage
+  useEffect(() => { loadProcesses() }, [])
+
+  const grouped = processes.reduce<Record<string, any[]>>((acc, p) => {
+    if (!acc[p.category]) acc[p.category] = []
+    acc[p.category].push(p)
+    return acc
+  }, {})
+
+  return (
+    <section>
+      <SectionTitle icon={BookOpen} title="Process liés à ce logement" />
+
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-muted-foreground">
+          Process personnalisés déclinés depuis la bibliothèque pour{' '}
+          <strong>{property.name}</strong>
+          {property.access_type && ` (${property.access_type})`}
+          {property.country && `, ${property.country}`}.
+        </p>
+        <div className="flex gap-2">
+          <Button
+            size="sm" variant="outline"
+            disabled={generating}
+            onClick={generateStandardProcesses}
+            className="gap-1.5 text-xs"
+          >
+            {generating
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : <Sparkles className="h-3 w-3" />
+            }
+            Générer les process standard
+          </Button>
+          <Link href="/process?view=by_property" className="text-xs text-blue-600 hover:underline underline-offset-2 self-center">
+            Gérer dans la bibliothèque →
+          </Link>
+        </div>
+      </div>
+
+      {generated && (
+        <div className="mb-3 flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-3 py-2 rounded-md border border-green-200">
+          <Check className="h-3.5 w-3.5" />
+          Process générés avec succès. Cliquez sur "Gérer dans la bibliothèque" pour les personnaliser.
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground py-4">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Chargement…
+        </div>
+      ) : processes.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <BookOpen className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+          <p className="text-sm text-muted-foreground">Aucun process personnalisé pour ce logement</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Cliquez "Générer les process standard" pour créer automatiquement les process applicables.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {Object.entries(grouped).map(([category, rows]) => (
+            <div key={category}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                {category}
+              </p>
+              <div className="space-y-1">
+                {rows.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/10 text-sm">
+                    <span className="flex-1 font-medium">{p.process_name}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                      p.status === 'Automatisé' ? 'bg-purple-100 text-purple-700' :
+                      p.status === 'Documenté'  ? 'bg-green-100 text-green-700'   :
+                      p.status === 'En cours'   ? 'bg-blue-100 text-blue-700'     :
+                      'bg-slate-100 text-slate-600'
+                    }`}>{p.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 

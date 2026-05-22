@@ -145,6 +145,83 @@ export async function POST(request: NextRequest) {
       conditionalEquipment = condInfo ?? []
     }
 
+    // ── 4b. Process applicable à ce logement selon l'intent détecté ─────────
+    let applicableProcess: { name: string; steps: string } | null = null
+    if (p?.id) {
+      const situationTypes = detectSituationType(message.body ?? '')
+      const keywordsMap: Record<string, string[]> = {
+        access_issue:    ['check-in', 'accès', 'boîte à clé', 'code', 'tuya', 'serrure', 'urgence accès'],
+        early_checkin:   ['check-in'],
+        cleaning:        ['ménage', 'post check-out', 'nettoyage'],
+        incident:        ['urgence'],
+      }
+      const keywords = situationTypes.flatMap((t) => keywordsMap[t] ?? [])
+
+      // Chercher d'abord un process personnalisé pour ce logement
+      let processMatch: any = null
+      if (keywords.length > 0) {
+        const { data: propProcesses } = await supabase
+          .from('process_library')
+          .select('id, process_name')
+          .eq('property_id', p.id)
+          .eq('is_template', false)
+          .limit(10)
+
+        if (propProcesses && propProcesses.length > 0) {
+          processMatch = propProcesses.find((proc: any) =>
+            keywords.some((kw) => proc.process_name.toLowerCase().includes(kw.toLowerCase()))
+          ) ?? propProcesses[0]
+        }
+
+        // Fallback : process template générique applicable
+        if (!processMatch) {
+          const accessType = p.access_type ?? 'key_box'
+          const country    = p.country ?? 'FR'
+          const { data: templates } = await supabase
+            .from('process_library')
+            .select('id, process_name')
+            .eq('is_template', true)
+            .contains('access_type_applicable', [accessType])
+            .limit(5)
+
+          if (templates && templates.length > 0) {
+            processMatch = templates.find((proc: any) =>
+              keywords.some((kw) => proc.process_name.toLowerCase().includes(kw.toLowerCase()))
+            ) ?? null
+          }
+        }
+      }
+
+      if (processMatch) {
+        const { data: steps } = await supabase
+          .from('process_steps')
+          .select('step_number, title, instruction, responsible, tool_needed')
+          .eq('process_id', processMatch.id)
+          .order('step_number')
+
+        if (steps && steps.length > 0) {
+          // Remplacer les variables par les vraies valeurs du logement
+          const stepsText = steps.map((s: any) => {
+            let instruction = s.instruction ?? ''
+            instruction = instruction
+              .replace(/access_instructions_full/g, p.access_instructions_full ?? '{{access_instructions_full}}')
+              .replace(/key_box_code/g,             p.key_box_code ?? '{{key_box_code}}')
+              .replace(/key_box_location/g,         p.key_box_location ?? '{{key_box_location}}')
+              .replace(/concierge_phone/g,          p.concierge_phone ?? '{{concierge_phone}}')
+              .replace(/backup_phone/g,             p.backup_phone ?? '{{backup_phone}}')
+              .replace(/check_in_time/g,            p.check_in_time ?? '{{check_in_time}}')
+              .replace(/syndic_phone/g,             p.syndic_phone ?? '{{syndic_phone}}')
+            return `  Étape ${s.step_number} — ${s.title} [${s.responsible}] : ${instruction}`
+          }).join('\n')
+
+          applicableProcess = {
+            name: processMatch.process_name,
+            steps: stepsText,
+          }
+        }
+      }
+    }
+
     // ── 5. Historique des 5 derniers messages ────────────────────────────────
     const { data: history } = await supabase
       .from('messages')
@@ -246,7 +323,13 @@ FAQ PERSONNALISÉE DU LOGEMENT
 ══════════════════════════════════════════════
 ${faqSection}
 ${examplesSection ? `\n══════════════════════════════════════════════\nEXEMPLES DE BONNES RÉPONSES (base de connaissances)\n══════════════════════════════════════════════\n${examplesSection}\n` : ''}
+${applicableProcess ? `══════════════════════════════════════════════
+PROCESS À SUIVRE : ${applicableProcess.name}
 ══════════════════════════════════════════════
+Applique rigoureusement les étapes ci-dessous pour répondre à ce message :
+${applicableProcess.steps}
+
+` : ''}══════════════════════════════════════════════
 CONSIGNES DE RÉPONSE
 ══════════════════════════════════════════════
 - ${langInstruction}
