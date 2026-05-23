@@ -56,17 +56,26 @@ export function KanbanBoard({ pipeline, leads, onLeadClick, onLeadsUpdated }: Ka
         return (
           <div
             key={stage.key}
-            className="flex-shrink-0 w-60 flex flex-col rounded-lg bg-muted/30 border"
+            className="flex-shrink-0 w-60 flex flex-col rounded-lg"
+            style={{ background: '#F8F7F5', border: '1px solid #E8E4DC' }}
             onDragOver={e => e.preventDefault()}
             onDrop={e => handleDrop(e, stage.key)}
           >
             {/* Colonne header */}
-            <div className="px-3 py-2.5 border-b flex items-center justify-between">
+            <div
+              className="px-3 py-2.5 flex items-center justify-between"
+              style={{ borderBottom: '1px solid #E8E4DC' }}
+            >
               <div>
-                <span className="text-xs font-semibold">{stage.label}</span>
-                {val && <span className="ml-1.5 text-xs text-muted-foreground">{val}</span>}
+                <span className="text-xs font-semibold" style={{ color: '#1A1A1A' }}>{stage.label}</span>
+                {val && (
+                  <span className="ml-1.5 text-xs" style={{ color: '#C4A044' }}>{val}</span>
+                )}
               </div>
-              <span className="text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 font-medium">
+              <span
+                className="text-xs rounded-full px-1.5 py-0.5 font-semibold"
+                style={{ background: 'rgba(196,160,68,0.10)', color: '#A88830' }}
+              >
                 {stageLeads.length}
               </span>
             </div>
@@ -84,7 +93,10 @@ export function KanbanBoard({ pipeline, leads, onLeadClick, onLeadsUpdated }: Ka
                 />
               ))}
               {stageLeads.length === 0 && (
-                <div className="h-16 flex items-center justify-center rounded-md border border-dashed border-border/60 text-xs text-muted-foreground">
+                <div
+                  className="h-16 flex items-center justify-center rounded-md text-xs"
+                  style={{ border: '1px dashed #E8E4DC', color: '#CCCCCC' }}
+                >
                   Déposer ici
                 </div>
               )}
@@ -116,9 +128,10 @@ function LeadCard({ lead, onClick, onDragStart, onDragEnd, isDragging }: LeadCar
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      className={`bg-background rounded-md border p-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all select-none ${
+      className={`rounded-md p-3 cursor-pointer transition-all select-none ${
         isDragging ? 'opacity-40 rotate-1 scale-95' : ''
       }`}
+      style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}
     >
       <div className="flex items-start justify-between gap-1 mb-1.5">
         <p className="text-xs font-semibold leading-tight line-clamp-1">

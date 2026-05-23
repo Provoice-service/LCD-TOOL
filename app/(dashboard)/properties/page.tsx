@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Home, MapPin, KeyRound, ChevronRight } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -25,12 +23,6 @@ function completionRate(property: Record<string, unknown>): number {
     return v !== null && v !== undefined && v !== ''
   }).length
   return Math.round((filled / COMPLETION_FIELDS.length) * 100)
-}
-
-function completionBadge(rate: number) {
-  if (rate >= 80) return { label: `${rate}%`, variant: 'default' as const, cls: 'bg-green-600 hover:bg-green-600 text-white' }
-  if (rate >= 40) return { label: `${rate}%`, variant: 'secondary' as const, cls: 'bg-amber-500 hover:bg-amber-500 text-white' }
-  return { label: `${rate}%`, variant: 'destructive' as const, cls: '' }
 }
 
 const ACCESS_LABEL: Record<string, string> = {
@@ -58,49 +50,95 @@ export default async function PropertiesPage() {
   const list = properties ?? []
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-8" style={{ maxWidth: 840 }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold">Logements</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1
+            style={{
+              fontFamily: 'var(--font-heading), Georgia, serif',
+              fontSize: 28,
+              fontWeight: 500,
+              color: '#1A1A1A',
+              letterSpacing: '0.01em',
+            }}
+          >
+            Logements
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: '#666666' }}>
             {list.length} logement{list.length > 1 ? 's' : ''}
           </p>
         </div>
       </div>
 
       {list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
+        <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: '#CCCCCC' }}>
           <Home className="h-12 w-12 opacity-20" />
           <p className="text-sm">Aucun logement — lancez le seed pour des données de démo</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {list.map((p) => {
             const rate = completionRate(p as Record<string, unknown>)
-            const badge = completionBadge(rate)
+            const barColor = rate >= 80 ? '#2E7D52' : rate >= 40 ? '#C17C1A' : '#C0392B'
+            const badgeColor = rate >= 80
+              ? { bg: 'rgba(46,125,82,0.10)', text: '#2E7D52', border: 'rgba(46,125,82,0.25)' }
+              : rate >= 40
+              ? { bg: 'rgba(193,124,26,0.10)', text: '#C17C1A', border: 'rgba(193,124,26,0.25)' }
+              : { bg: 'rgba(192,57,43,0.10)', text: '#C0392B', border: 'rgba(192,57,43,0.25)' }
+
+            const countryBadge = p.country === 'MA'
+              ? { bg: 'rgba(76,175,114,0.12)', text: '#4CAF72', border: 'rgba(76,175,114,0.3)' }
+              : p.country === 'FR'
+              ? { bg: 'rgba(91,155,213,0.12)', text: '#5B9BD5', border: 'rgba(91,155,213,0.3)' }
+              : null
+
             return (
               <div
                 key={p.id}
-                className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                className="flex items-center gap-4 p-4 rounded-xl transition-colors duration-200"
+                style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}
               >
                 {/* Icône */}
-                <div className="shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                  <Home className="h-5 w-5 text-muted-foreground" />
+                <div
+                  className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(196,160,68,0.08)', border: '1px solid rgba(196,160,68,0.2)' }}
+                >
+                  <Home className="h-4.5 w-4.5" style={{ color: '#C4A044' }} />
                 </div>
 
                 {/* Infos */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-semibold truncate">{p.name}</span>
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span className="font-medium text-sm truncate" style={{ color: '#1A1A1A' }}>
+                      {p.name}
+                    </span>
                     {!p.is_active && (
-                      <Badge variant="outline" className="text-[10px]">Inactif</Badge>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                        style={{ background: '#F2F0EC', color: '#999999', border: '1px solid #E8E4DC' }}
+                      >
+                        Inactif
+                      </span>
+                    )}
+                    {countryBadge && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                        style={{
+                          background: countryBadge.bg,
+                          color: countryBadge.text,
+                          border: `1px solid ${countryBadge.border}`,
+                        }}
+                      >
+                        {p.country}
+                      </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs" style={{ color: '#999999' }}>
                     {p.city && (
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
-                        {p.city}{p.country ? `, ${p.country}` : ''}
+                        {p.city}{p.country && p.country !== 'FR' ? `, ${p.country}` : ''}
                       </span>
                     )}
                     <span className="flex items-center gap-1">
@@ -110,27 +148,39 @@ export default async function PropertiesPage() {
                   </div>
                 </div>
 
-                {/* Taux de complétion */}
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <Badge className={badge.cls} variant={badge.variant}>
-                    Fiche {badge.label}
-                  </Badge>
-                  <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+                {/* Complétion */}
+                <div className="shrink-0 flex flex-col items-end gap-1.5">
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded"
+                    style={{
+                      background: badgeColor.bg,
+                      color: badgeColor.text,
+                      border: `1px solid ${badgeColor.border}`,
+                    }}
+                  >
+                    Fiche {rate}%
+                  </span>
+                  <div className="w-24 h-1 rounded-full overflow-hidden" style={{ background: '#2A2A2A' }}>
                     <div
-                      className={`h-full rounded-full transition-all ${
-                        rate >= 80 ? 'bg-green-600' : rate >= 40 ? 'bg-amber-500' : 'bg-destructive'
-                      }`}
-                      style={{ width: `${rate}%` }}
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${rate}%`, background: barColor }}
                     />
                   </div>
                 </div>
 
                 {/* Bouton */}
                 <Link href={`/properties/${p.id}`} className="shrink-0">
-                  <Button variant="outline" size="sm" className="gap-1">
+                  <button
+                    className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #E8E4DC',
+                      color: '#666666',
+                    }}
+                  >
                     Voir la fiche
                     <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
+                  </button>
                 </Link>
               </div>
             )

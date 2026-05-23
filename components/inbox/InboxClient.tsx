@@ -142,9 +142,15 @@ export function InboxClient({ initialMessages }: InboxClientProps) {
   return (
     <div className="flex h-full overflow-hidden">
       {/* ─── Panneau gauche : liste ────────────────────────────────────────── */}
-      <aside className="w-[280px] shrink-0 border-r flex flex-col overflow-hidden">
+      <aside
+        className="w-[280px] shrink-0 flex flex-col overflow-hidden"
+        style={{ background: '#F8F7F5', borderRight: '1px solid #E8E4DC' }}
+      >
         {/* Header liste */}
-        <div className="px-4 py-3 border-b flex items-center justify-between">
+        <div
+          className="px-4 py-3 flex items-center justify-between"
+          style={{ borderBottom: '1px solid #E8E4DC' }}
+        >
           <div className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             <span className="font-semibold text-sm">Inbox</span>
@@ -172,15 +178,18 @@ export function InboxClient({ initialMessages }: InboxClientProps) {
                 <button
                   key={msg.id}
                   onClick={() => setSelected(msg)}
-                  className={`w-full text-left px-3 py-3 border-b hover:bg-muted/50 transition-colors ${
-                    isSelected ? 'bg-muted' : ''
-                  }`}
+                  className="w-full text-left px-3 py-3 transition-colors"
+                  style={{
+                    borderBottom: '1px solid #E8E4DC',
+                    background: isSelected ? '#FFFFFF' : 'transparent',
+                    borderLeft: isSelected ? '3px solid #C4A044' : '3px solid transparent',
+                  }}
                 >
                   {/* Ligne 1 : nom + heure */}
                   <div className="flex items-center justify-between mb-0.5">
                     <div className="flex items-center gap-1.5 min-w-0">
                       {isUnread && (
-                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#C4A044' }} />
                       )}
                       <span
                         className={`text-sm truncate ${
@@ -286,7 +295,10 @@ function ThreadHeader({ message }: { message: MessageWithContext }) {
   ]
 
   return (
-    <div className="px-4 py-3 flex items-start justify-between gap-4 bg-background">
+    <div
+      className="px-4 py-3 flex items-start justify-between gap-4"
+      style={{ background: '#F8F7F5', borderBottom: '1px solid #E8E4DC' }}
+    >
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold truncate">{guest?.full_name ?? 'Inconnu'}</h2>
@@ -310,9 +322,8 @@ function ThreadHeader({ message }: { message: MessageWithContext }) {
           <div
             key={label}
             title={label}
-            className={`flex flex-col items-center gap-0.5 ${
-              done ? 'text-green-600' : 'text-muted-foreground/40'
-            }`}
+            style={{ color: done ? '#2E7D52' : '#CCCCCC' }}
+            className="flex flex-col items-center gap-0.5"
           >
             <Icon className="h-4 w-4" />
             <span className="text-[9px] leading-none">{label}</span>
@@ -333,17 +344,16 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
   return (
     <div className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}>
       <div
-        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
-          isInbound
-            ? 'bg-muted text-foreground rounded-tl-sm'
-            : 'bg-primary text-primary-foreground rounded-tr-sm'
-        }`}
+        className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm"
+        style={isInbound
+          ? { background: '#F2F0EC', color: '#1A1A1A', borderRadius: '16px 16px 16px 4px' }
+          : { background: 'rgba(196,160,68,0.10)', color: '#A88830', borderRadius: '16px 16px 4px 16px', border: '1px solid rgba(196,160,68,0.25)' }
+        }
       >
         <p className="whitespace-pre-wrap">{message.body}</p>
         <p
-          className={`text-[10px] mt-1 ${
-            isInbound ? 'text-muted-foreground' : 'text-primary-foreground/70'
-          }`}
+          className="text-[10px] mt-1"
+          style={{ color: isInbound ? '#999999' : 'rgba(168,136,48,0.7)' }}
         >
           {formatDistanceToNow(new Date(message.created_at), {
             addSuffix: true,

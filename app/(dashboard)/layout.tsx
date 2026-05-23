@@ -1,38 +1,28 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import {
-  Inbox,
-  Calendar,
-  Sparkles,
-  Wrench,
-  Users,
-  DollarSign,
-  Database,
-  Home,
-  BookOpen,
-  BarChart2,
-  Globe,
-  TrendingUp,
-  ClipboardList,
+  Inbox, Calendar, Sparkles, Wrench, Users, DollarSign,
+  Database, Home, BookOpen, BarChart2, Globe, TrendingUp,
+  ClipboardList, LogOut,
 } from 'lucide-react'
-import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/server'
 
 const navItems = [
-  { href: '/inbox',         label: 'Inbox',           icon: Inbox      },
+  { href: '/inbox',         label: 'Inbox',           icon: Inbox        },
   { href: '/agenda',        label: 'Agenda',          icon: ClipboardList },
-  { href: '/reservations',  label: 'Réservations',    icon: Calendar   },
-  { href: '/properties',    label: 'Logements',       icon: Home       },
-  { href: '/menage',        label: 'Ménage',          icon: Sparkles   },
-  { href: '/sav',           label: 'SAV',             icon: Wrench     },
-  { href: '/proprietaires', label: 'Propriétaires',   icon: Users      },
-  { href: '/finance',       label: 'Finance',         icon: DollarSign },
-  { href: '/process',       label: 'Process',         icon: BookOpen   },
+  { href: '/reservations',  label: 'Réservations',    icon: Calendar     },
+  { href: '/properties',   label: 'Logements',        icon: Home         },
+  { href: '/menage',        label: 'Ménage',           icon: Sparkles     },
+  { href: '/sav',           label: 'SAV',              icon: Wrench       },
+  { href: '/proprietaires', label: 'Propriétaires',   icon: Users        },
+  { href: '/finance',       label: 'Finance',          icon: DollarSign   },
+  { href: '/process',       label: 'Process',          icon: BookOpen     },
 ]
 
 const crmSubItems = [
-  { href: '/crm',           label: 'Pipeline',        icon: TrendingUp },
-  { href: '/crm#dashboard', label: 'Dashboard & KPIs',icon: BarChart2  },
-  { href: '/crm#expansion', label: 'Expansion',       icon: Globe      },
+  { href: '/crm',           label: 'Pipeline',         icon: TrendingUp  },
+  { href: '/crm#dashboard', label: 'Dashboard & KPIs', icon: BarChart2   },
+  { href: '/crm#expansion', label: 'Expansion',        icon: Globe       },
 ]
 
 export default async function DashboardLayout({
@@ -48,26 +38,59 @@ export default async function DashboardLayout({
     .not('status', 'in', '("done","cancelled")')
 
   return (
-    <div className="flex h-screen">
-      <aside className="w-60 shrink-0 border-r bg-sidebar flex flex-col">
-        <div className="px-4 py-5">
-          <span className="text-base font-semibold tracking-tight text-sidebar-foreground">
-            LCD Tool
+    <div className="flex h-screen overflow-hidden" style={{ background: '#F8F7F5' }}>
+
+      {/* ── Sidebar ────────────────────────────────────────────────────────── */}
+      <aside
+        className="w-60 shrink-0 flex flex-col overflow-hidden"
+        style={{
+          background: '#FFFFFF',
+          borderRight: '1px solid #E8E4DC',
+        }}
+      >
+        {/* Logo */}
+        <div className="px-6 py-5 shrink-0">
+          <Image
+            src="/logo-alma-keys.png"
+            alt="Alma Keys"
+            width={160}
+            height={48}
+            className="h-12 w-auto object-contain"
+            priority
+          />
+        </div>
+
+        {/* Séparateur or */}
+        <div style={{ height: '1px', background: '#E8E4DC', margin: '0 24px' }} />
+
+        {/* Label navigation */}
+        <div className="px-6 pt-5 pb-2 shrink-0">
+          <span
+            className="text-[10px] font-semibold tracking-[0.1em] uppercase"
+            style={{ color: '#999999' }}
+          >
+            Navigation
           </span>
         </div>
-        <Separator />
-        <nav className="flex-1 p-2 overflow-y-auto">
+
+        {/* Nav items */}
+        <nav className="flex-1 px-3 overflow-y-auto pb-4">
           <ul className="space-y-0.5">
             {navItems.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                  className="group flex items-center gap-3 rounded-r-md px-3 py-2 text-sm font-medium transition-all duration-150"
+                  style={{ color: '#666666' }}
+                  data-nav-item
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
+                  <item.icon className="h-4 w-4 shrink-0 transition-colors" />
                   <span className="flex-1">{item.label}</span>
                   {item.href === '/agenda' && (urgentCount ?? 0) > 0 && (
-                    <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none">
+                    <span
+                      className="text-[10px] rounded-full px-1.5 py-0.5 font-bold leading-none"
+                      style={{ background: '#C0392B', color: '#FFFFFF' }}
+                    >
                       {urgentCount}
                     </span>
                   )}
@@ -75,18 +98,25 @@ export default async function DashboardLayout({
               </li>
             ))}
 
-            {/* CRM — groupe avec sous-items */}
-            <li className="pt-1">
-              <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground">
-                <Database className="h-4 w-4 shrink-0" />
+            {/* CRM group */}
+            <li className="pt-2">
+              <div
+                className="flex items-center gap-3 px-3 py-1.5 text-[10px] font-semibold tracking-[0.08em] uppercase"
+                style={{ color: '#999999' }}
+              >
+                <Database className="h-3.5 w-3.5 shrink-0" />
                 CRM Commercial
               </div>
-              <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-border pl-3">
+              <ul
+                className="mt-0.5 ml-4 space-y-0.5 pl-3"
+                style={{ borderLeft: '1px solid #E8E4DC' }}
+              >
                 {crmSubItems.map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                      className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-all duration-150"
+                      style={{ color: '#666666' }}
                     >
                       <item.icon className="h-3.5 w-3.5 shrink-0" />
                       {item.label}
@@ -97,8 +127,48 @@ export default async function DashboardLayout({
             </li>
           </ul>
         </nav>
+
+        {/* ── User footer ────────────────────────────────────────────────── */}
+        <div
+          className="shrink-0 px-4 py-4"
+          style={{ borderTop: '1px solid #E8E4DC' }}
+        >
+          <div className="flex items-center gap-3">
+            {/* Avatar initiales */}
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+              style={{ background: 'rgba(196,160,68,0.10)', color: '#C4A044', border: '1px solid rgba(196,160,68,0.25)' }}
+            >
+              MC
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate" style={{ color: '#1A1A1A' }}>Morad Chliyah</p>
+              <span
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm"
+                style={{ background: 'rgba(196,160,68,0.10)', color: '#A88830' }}
+              >
+                Admin
+              </span>
+            </div>
+            <form action="/api/auth/signout" method="post">
+              <button
+                type="submit"
+                className="p-1.5 rounded-md transition-colors"
+                style={{ color: '#999999' }}
+                title="Se déconnecter"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </form>
+          </div>
+        </div>
       </aside>
-      <main className="flex-1 overflow-auto bg-background">
+
+      {/* ── Main content ───────────────────────────────────────────────────── */}
+      <main
+        className="flex-1 overflow-auto"
+        style={{ background: '#F8F7F5' }}
+      >
         {children}
       </main>
     </div>
