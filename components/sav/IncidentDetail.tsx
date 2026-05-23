@@ -13,6 +13,7 @@ import {
   PRIORITY_CONFIG, STATUS_CONFIG, SAV_TYPE_CONFIG,
   INDEMNISATION_STATUS_CONFIG,
 } from './types'
+import { ProviderSearch } from '@/components/contacts/ProviderSearch'
 
 interface Props {
   incident: Incident
@@ -181,18 +182,14 @@ export function IncidentDetail({ incident, onClose, onPatch, onDelete }: Props) 
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field
-                label="Intervenant"
+            <div>
+              <label className="text-xs font-medium block mb-1.5" style={{ color: '#666666' }}>Intervenant</label>
+              <ProviderSearch
                 value={incident.assigned_provider ?? ''}
-                onChange={v => onPatch({ assigned_provider: v })}
-                placeholder="Nom intervenant"
-              />
-              <Field
-                label="Téléphone"
-                value={incident.provider_phone ?? ''}
-                onChange={v => onPatch({ provider_phone: v })}
-                placeholder="+212 6..."
+                providerId={null}
+                onChange={(name, _id, phone) => onPatch({ assigned_provider: name, provider_phone: phone ?? incident.provider_phone ?? '' })}
+                savType={incident.sav_type}
+                propertyId={incident.property?.id}
               />
             </div>
 
@@ -283,6 +280,17 @@ export function IncidentDetail({ incident, onClose, onPatch, onDelete }: Props) 
                 onChange={v => onPatch({ guest_notified: v })}
               />
             </div>
+            {incident.billable_to_owner && (incident.actual_cost ?? 0) > 0 && (
+              <div className="mt-3">
+                <a
+                  href={`/finance/depenses?incident=${incident.id}&amount=${incident.actual_cost}&property=${incident.property?.id ?? ''}&title=${encodeURIComponent(incident.title ?? 'Incident SAV')}`}
+                  className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                  style={{ background: 'rgba(196,160,68,0.10)', color: '#A88830', border: '1px solid rgba(196,160,68,0.3)' }}
+                >
+                  + Créer une dépense liée
+                </a>
+              </div>
+            )}
           </Section>
 
           {/* Section : Indemnisation & Caution */}

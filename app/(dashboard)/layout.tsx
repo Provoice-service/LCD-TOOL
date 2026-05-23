@@ -3,7 +3,7 @@ import Image from 'next/image'
 import {
   Inbox, Calendar, Sparkles, Wrench, Users, DollarSign,
   Database, Home, BookOpen, BarChart2, Globe, TrendingUp,
-  ClipboardList, LogOut,
+  ClipboardList, LogOut, ContactRound, Receipt,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
@@ -14,9 +14,14 @@ const navItems = [
   { href: '/properties',   label: 'Logements',        icon: Home         },
   { href: '/menage',        label: 'Ménage',           icon: Sparkles     },
   { href: '/sav',           label: 'SAV',              icon: Wrench       },
+  { href: '/contacts',      label: 'Contacts',         icon: ContactRound },
   { href: '/proprietaires', label: 'Propriétaires',   icon: Users        },
   { href: '/finance',       label: 'Finance',          icon: DollarSign   },
   { href: '/process',       label: 'Process',          icon: BookOpen     },
+]
+
+const financeSubItems = [
+  { href: '/finance/depenses', label: 'Dépenses', icon: Receipt },
 ]
 
 const crmSubItems = [
@@ -97,6 +102,27 @@ export default async function DashboardLayout({
                 </Link>
               </li>
             ))}
+
+            {/* Finance sub-menu */}
+            <li className="pt-1">
+              <ul
+                className="ml-4 space-y-0.5 pl-3"
+                style={{ borderLeft: '1px solid #E8E4DC' }}
+              >
+                {financeSubItems.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-all duration-150"
+                      style={{ color: '#666666' }}
+                    >
+                      <item.icon className="h-3.5 w-3.5 shrink-0" />
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </li>
 
             {/* CRM group */}
             <li className="pt-2">

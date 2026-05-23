@@ -1,8 +1,16 @@
-export default function ProprietairesPage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-2">Propriétaires</h1>
-      <p className="text-muted-foreground">En cours de construction.</p>
-    </div>
-  )
+import { createClient } from '@/lib/supabase/server'
+import { ProprietairesClient } from '@/components/proprietaires/ProprietairesClient'
+
+export default async function ProprietairesPage() {
+  const supabase = await createClient()
+
+  const { data: owners } = await supabase
+    .from('owners')
+    .select(`
+      *,
+      properties:properties(id, name, city, country, is_active)
+    `)
+    .order('full_name')
+
+  return <ProprietairesClient initialOwners={owners ?? []} />
 }

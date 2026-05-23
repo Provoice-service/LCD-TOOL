@@ -6,6 +6,7 @@ import { X, Loader2, AlertTriangle } from 'lucide-react'
 import type { Incident, IncidentPriority, SavType, ReportedBy } from './types'
 import { SAV_TYPE_CONFIG, PRIORITY_CONFIG } from './types'
 import { addDays, format } from 'date-fns'
+import { ProviderSearch } from '@/components/contacts/ProviderSearch'
 
 interface Props {
   properties: { id: string; name: string; city: string | null; country: string | null }[]
@@ -21,6 +22,7 @@ export function NewIncidentForm({ properties, onClose, onCreate }: Props) {
   const [reportedBy, setReportedBy] = useState<ReportedBy>('voyageur')
   const [description, setDescription] = useState('')
   const [provider, setProvider] = useState('')
+  const [providerId, setProviderId] = useState<string | null>(null)
   const [providerPhone, setProviderPhone] = useState('')
   const [estimatedCost, setEstimatedCost] = useState(0)
   const [billable, setBillable] = useState(false)
@@ -50,6 +52,7 @@ export function NewIncidentForm({ properties, onClose, onCreate }: Props) {
         description: description || null,
         assigned_provider: provider || null,
         provider_phone: providerPhone || null,
+        provider_id: providerId,
         estimated_cost: estimatedCost,
         billable_to_owner: billable,
         status: 'open',
@@ -200,28 +203,16 @@ export function NewIncidentForm({ properties, onClose, onCreate }: Props) {
           </FormField>
 
           {/* Intervenant */}
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Intervenant pressenti">
-              <input
-                type="text"
-                value={provider}
-                onChange={e => setProvider(e.target.value)}
-                placeholder="Nom prestataire"
-                className="w-full text-sm rounded-lg px-3 py-2 outline-none"
-                style={{ border: '1px solid #E8E4DC', color: '#1A1A1A' }}
-              />
-            </FormField>
-            <FormField label="Téléphone">
-              <input
-                type="tel"
-                value={providerPhone}
-                onChange={e => setProviderPhone(e.target.value)}
-                placeholder="+212 6..."
-                className="w-full text-sm rounded-lg px-3 py-2 outline-none"
-                style={{ border: '1px solid #E8E4DC', color: '#1A1A1A' }}
-              />
-            </FormField>
-          </div>
+          <FormField label="Intervenant pressenti">
+            <ProviderSearch
+              value={provider}
+              providerId={providerId}
+              onChange={(name, id, phone) => { setProvider(name); setProviderId(id); if (phone) setProviderPhone(phone) }}
+              savType={savType || null}
+              propertyId={propertyId || null}
+              placeholder="Rechercher ou saisir un intervenant…"
+            />
+          </FormField>
 
           {/* Coût estimé */}
           <FormField label="Coût estimé (€)">
