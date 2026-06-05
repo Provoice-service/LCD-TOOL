@@ -26,7 +26,11 @@ import {
   ExternalLink,
   Image as ImageIcon,
   ClipboardList,
+  Globe,
+  QrCode,
+  MessageCircle,
 } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -67,7 +71,7 @@ interface AccessResult {
 }
 
 interface ChecklistItem {
-  key: keyof Pick<ReservationRow, 'contract_signed' | 'id_received' | 'deposit_ok' | 'access_code_sent'>
+  key: keyof Pick<ReservationRow, 'contract_signed' | 'id_received' | 'deposit_ok' | 'access_code_sent' | 'guest_page_sent'>
   label: string
   icon: React.ElementType
 }
@@ -77,6 +81,7 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
   { key: 'id_received',      label: "Pièce d'identité",    icon: CreditCard },
   { key: 'deposit_ok',       label: 'Caution encaissée',   icon: Shield    },
   { key: 'access_code_sent', label: 'Code accès envoyé',   icon: KeyRound  },
+  { key: 'guest_page_sent',  label: 'Guest Page envoyée',  icon: Globe     },
 ]
 
 const LOCK_TYPE_LABEL: Record<string, string> = {
@@ -107,8 +112,14 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
   const [syndicResult, setSyndicResult]   = useState<string | null>(null)
   const [uploading, setUploading]     = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [guestPageUrl, setGuestPageUrl] = useState<string | null>(
+    res.guest_page_token ? `${typeof window !== 'undefined' ? window.location.origin : ''}/guest/${res.guest_page_token}` : null
+  )
+  const [generatingGuestPage, setGeneratingGuestPage] = useState(false)
+  const [copiedGuestUrl, setCopiedGuestUrl] = useState(false)
+  const [showQr, setShowQr] = useState(false)
 
-  const doneCount = CHECKLIST_ITEMS.filter((item) => res[item.key]).length
+  const doneCount = CHECKLIST_ITEMS.filter((item) => res[item.key as keyof ReservationRow]).length
   const lockType = res.access_type_override ?? res.property?.access_type ?? 'key_box'
 
   const checkIn = res.check_in
@@ -119,7 +130,7 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
     : '—'
 
   async function toggleChecklist(
-    key: keyof Pick<ReservationRow, 'contract_signed' | 'id_received' | 'deposit_ok' | 'access_code_sent'>
+    key: keyof Pick<ReservationRow, 'contract_signed' | 'id_received' | 'deposit_ok' | 'access_code_sent' | 'guest_page_sent'>
   ) {
     const newVal = !res[key]
     setUpdatingKey(key)
@@ -225,6 +236,27 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
     await loadDocuments()
   }
 
+  async function generateGuestPage() {
+    setGeneratingGuestPage(true)
+    const r = await fetch('/api/guest-page/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reservation_id: res.id }),
+    })
+    const data = await r.json()
+    if (data.url) {
+      setGuestPageUrl(data.url)
+      onUpdated({ ...res, guest_page_token: data.token })
+    }
+    setGeneratingGuestPage(false)
+  }
+
+  async function markGuestPageSent() {
+    const supabase = createClient()
+    await supabase.from('reservations').update({ guest_page_sent: true }).eq('id', res.id)
+    onUpdated({ ...res, guest_page_sent: true })
+  }
+
   const DOC_LABEL: Record<string, string> = { passport: 'Passeport', cni: 'CNI', contract: 'Contrat', other: 'Autre' }
   const VIA_LABEL: Record<string, string>  = { whatsapp: 'WhatsApp', airbnb_message: 'Airbnb', email: 'Email', manual_upload: 'Upload' }
   const SYNDIC_STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -290,20 +322,20 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
             <h3 className="font-semibold text-sm">Checklist arrivée</h3>
             <span
               className={`text-sm font-medium ${
-                doneCount === 4 ? 'text-green-600' : 'text-muted-foreground'
+                doneCount === 5 ? 'text-green-600' : 'text-muted-foreground'
               }`}
             >
-              {doneCount}/4
+              {doneCount}/5
             </span>
           </div>
           <div className="space-y-2">
             {CHECKLIST_ITEMS.map(({ key, label, icon: Icon }) => {
-              const done = res[key] as boolean
+              const done = res[key as keyof ReservationRow] as boolean
               const isUpdating = updatingKey === key
               return (
                 <button
                   key={key}
-                  onClick={() => toggleChecklist(key)}
+                  onClick={() => toggleChecklist(key as keyof Pick<ReservationRow, 'contract_signed' | 'id_received' | 'deposit_ok' | 'access_code_sent' | 'guest_page_sent'>)}
                   disabled={isUpdating}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors text-left ${
                     done
@@ -451,6 +483,92 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
             <ClipboardList className="h-3.5 w-3.5" />
             Créer une tâche liée à cette réservation
           </Button>
+        </div>
+
+        {/* ── Guest Page ───────────────────────────────────────────────────── */}
+        <Separator />
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Guest Page
+            </h3>
+            {res.guest_page_sent && (
+              <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                <Check className="h-3 w-3" /> Envoyée
+              </span>
+            )}
+          </div>
+
+          {!guestPageUrl ? (
+            <Button onClick={generateGuestPage} disabled={generatingGuestPage} className="w-full gap-2">
+              {generatingGuestPage
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Génération…</>
+                : <><Globe className="h-4 w-4" /> Générer la Guest Page</>
+              }
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              {/* URL + copy */}
+              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
+                <span className="text-xs text-muted-foreground flex-1 truncate font-mono">{guestPageUrl}</span>
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(guestPageUrl)
+                    setCopiedGuestUrl(true)
+                    setTimeout(() => setCopiedGuestUrl(false), 2000)
+                    await markGuestPageSent()
+                  }}
+                  className="shrink-0 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {copiedGuestUrl ? <><Check className="h-3.5 w-3.5 text-green-600" /> Copié</> : <><Copy className="h-3.5 w-3.5" /> Copier</>}
+                </button>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 flex-wrap">
+                <a
+                  href={guestPageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border text-muted-foreground hover:text-foreground"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Ouvrir
+                </a>
+                {res.guest?.phone && (
+                  <a
+                    href={`https://wa.me/${res.guest.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${res.guest.full_name?.split(' ')[0] ?? ''} 👋 Voici votre espace séjour Alma Keys : ${guestPageUrl}`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg"
+                    style={{ background: 'rgba(37,211,102,0.10)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366' }}
+                    onClick={() => markGuestPageSent()}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                  </a>
+                )}
+                <button
+                  onClick={() => setShowQr(v => !v)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border text-muted-foreground hover:text-foreground"
+                >
+                  <QrCode className="h-3.5 w-3.5" /> QR Code
+                </button>
+                <button
+                  onClick={() => { generateGuestPage() }}
+                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border text-muted-foreground hover:text-foreground"
+                >
+                  <RefreshCw className="h-3 w-3" /> Regénérer
+                </button>
+              </div>
+
+              {/* QR Code */}
+              {showQr && (
+                <div className="flex justify-center p-4 rounded-lg border bg-white">
+                  <QRCodeSVG value={guestPageUrl} size={160} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Documents & Syndic ───────────────────────────────────────────── */}

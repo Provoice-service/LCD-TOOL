@@ -32,6 +32,8 @@ export interface ReservationRow {
   access_code_sent: boolean
   access_code: string | null
   access_type_override: string | null
+  guest_page_token: string | null
+  guest_page_sent: boolean
   guest: { id: string; full_name: string; phone: string | null; language: string } | null
   property: {
     id: string
@@ -45,6 +47,7 @@ export interface ReservationRow {
     syndic_required: boolean
     syndic_name: string | null
     syndic_phone: string | null
+    concierge_phone: string | null
   } | null
 }
 
