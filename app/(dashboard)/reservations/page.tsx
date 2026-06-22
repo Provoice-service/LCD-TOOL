@@ -10,6 +10,7 @@ export default async function ReservationsPage() {
       id, check_in, check_out, platform, status, total_amount,
       contract_signed, id_received, deposit_ok, access_code_sent,
       access_code, access_type_override, guest_page_token, guest_page_sent,
+      onboarding_completed_at, onboarding_step,
       guest:guests(id, full_name, phone, language),
       property:properties(id, name, city, access_type, tuya_device_id, wifi_name, wifi_pass, house_rules, syndic_required, syndic_name, syndic_phone, concierge_phone)
     `)

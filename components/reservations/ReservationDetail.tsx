@@ -238,7 +238,7 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
 
   async function generateGuestPage() {
     setGeneratingGuestPage(true)
-    const r = await fetch('/api/guest-page/generate', {
+    const r = await fetch('/api/guest/generate-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reservation_id: res.id }),
@@ -491,11 +491,11 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-sm flex items-center gap-2">
               <Globe className="h-4 w-4" />
-              Guest Page
+              Lien Onboarding
             </h3>
             {res.guest_page_sent && (
               <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                <Check className="h-3 w-3" /> Envoyée
+                <Check className="h-3 w-3" /> Envoyé
               </span>
             )}
           </div>
@@ -504,11 +504,30 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
             <Button onClick={generateGuestPage} disabled={generatingGuestPage} className="w-full gap-2">
               {generatingGuestPage
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Génération…</>
-                : <><Globe className="h-4 w-4" /> Générer la Guest Page</>
+                : <><Globe className="h-4 w-4" /> Générer lien onboarding</>
               }
             </Button>
           ) : (
             <div className="space-y-3">
+
+              {/* Statut onboarding */}
+              {res.onboarding_completed_at ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: 'rgba(46,125,82,0.08)', color: '#2E7D52', border: '1px solid rgba(46,125,82,0.2)' }}>
+                  <Check className="h-3.5 w-3.5" /> Dossier complet ✓
+                </div>
+              ) : res.onboarding_step > 0 ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: 'rgba(196,160,68,0.08)', color: '#A88830', border: '1px solid rgba(196,160,68,0.2)' }}>
+                  <ClipboardList className="h-3.5 w-3.5" /> Étape {res.onboarding_step}/4 complétée
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                  style={{ background: '#F8F7F5', color: '#999999', border: '1px solid #E8E4DC' }}>
+                  <ClipboardList className="h-3.5 w-3.5" /> En attente — lien non encore ouvert
+                </div>
+              )}
+
               {/* URL + copy */}
               <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
                 <span className="text-xs text-muted-foreground flex-1 truncate font-mono">{guestPageUrl}</span>
@@ -537,7 +556,7 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
                 </a>
                 {res.guest?.phone && (
                   <a
-                    href={`https://wa.me/${res.guest.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${res.guest.full_name?.split(' ')[0] ?? ''} 👋 Voici votre espace séjour Alma Keys : ${guestPageUrl}`)}`}
+                    href={`https://wa.me/${res.guest.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${res.guest.full_name?.split(' ')[0] ?? ''} 👋 Voici votre espace voyageur Alma Keys : ${guestPageUrl}`)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg"

@@ -34,6 +34,8 @@ export interface ReservationRow {
   access_type_override: string | null
   guest_page_token: string | null
   guest_page_sent: boolean
+  onboarding_completed_at: string | null
+  onboarding_step: number
   guest: { id: string; full_name: string; phone: string | null; language: string } | null
   property: {
     id: string
