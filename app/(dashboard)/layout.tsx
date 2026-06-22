@@ -3,7 +3,7 @@ import Image from 'next/image'
 import {
   Inbox, Calendar, Sparkles, Wrench, Users, DollarSign,
   Database, Home, BookOpen, BarChart2, Globe, TrendingUp,
-  ClipboardList, LogOut, ContactRound, Receipt,
+  ClipboardList, LogOut, ContactRound, Receipt, FileSignature,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/inbox',         label: 'Inbox',           icon: Inbox        },
   { href: '/agenda',        label: 'Agenda',          icon: ClipboardList },
   { href: '/reservations',  label: 'Réservations',    icon: Calendar     },
+  { href: '/contrats',      label: 'Contrats',         icon: FileSignature },
   { href: '/properties',   label: 'Logements',        icon: Home         },
   { href: '/menage',        label: 'Ménage',           icon: Sparkles     },
   { href: '/sav',           label: 'SAV',              icon: Wrench       },

@@ -9,6 +9,7 @@ import {
   Copy, Check, MapPin, Phone, MessageCircle, Upload,
   ExternalLink, Send, Clock, Star, Wifi, Loader2,
 } from 'lucide-react'
+import ContractTab from './ContractTab'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -590,25 +591,7 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
   function TabContract() {
     return (
       <div className="space-y-4">
-        <Card title={t.contract.title}>
-          {res.contract_signed && (
-            <div className="mb-3 flex items-center gap-2 text-sm" style={{ color: '#2E7D52' }}>
-              <Check className="h-4 w-4" /> {t.contract.signed}
-            </div>
-          )}
-          {res.contract_url ? (
-            <a href={res.contract_url} target="_blank" rel="noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold"
-              style={{ background: '#C4A044', color: '#FFFFFF' }}>
-              <ExternalLink className="h-4 w-4" /> {t.contract.view}
-            </a>
-          ) : (
-            <p className="text-sm" style={{ color: '#666666' }}>{t.contract.noContract}</p>
-          )}
-          {!res.contract_signed && (
-            <p className="mt-2 text-xs" style={{ color: '#999999' }}>{t.contract.notSigned}</p>
-          )}
-        </Card>
+        <ContractTab token={token} lang={lang} />
       </div>
     )
   }
