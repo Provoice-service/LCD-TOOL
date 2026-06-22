@@ -81,10 +81,12 @@ export default function ContractTab({
   token,
   lang,
   initialData,
+  onSigned,
 }: {
   token: string
   lang: Lang
   initialData?: ContractData | null
+  onSigned?: () => void
 }) {
   const t = T[lang === 'en' ? 'en' : 'fr']
   const isAirbnb = (initialData?.reservation?.platform ?? '').toLowerCase() === 'airbnb'
@@ -228,6 +230,7 @@ export default function ContractTab({
         setSigned(true)
         setSignedAt(json.signed_at ?? null)
         setPdfUrl(json.pdf_url ?? null)
+        onSigned?.()
       }
     } finally {
       setSigning(false)

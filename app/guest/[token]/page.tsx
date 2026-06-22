@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
-import { GuestPageClient } from './GuestPageClient'
+import { GuestPageClient, type Reservation, type Upsell, type GuestMessage } from './GuestPageClient'
+import OnboardingWizard, { type WizardReservation, type WizardGuest, type WizardProperty, type WizardUpsell } from './OnboardingWizard'
 import Image from 'next/image'
 
 export const dynamic = 'force-dynamic'
@@ -15,12 +16,14 @@ export default async function GuestPage({ params }: Props) {
   const { data: res } = await svc
     .from('reservations')
     .select(`
-      id, check_in, check_out, platform, status, total_amount, num_guests,
+      id, check_in, check_out, platform, status, total_amount,
+      num_guests, nb_adults, arrival_time,
       access_code, access_code_display_from,
       contract_url, contract_signed,
-      id_received, id_document_url, id_document_uploaded_at,
+      id_received, id_document_url, id_document_uploaded_at, identity_documents,
       extras_requested, guest_page_language, guest_page_token,
-      guest:guests(id, full_name, phone, email, language),
+      onboarding_completed_at, onboarding_step,
+      guest:guests(id, full_name, phone, email, language, address, city, country_residence),
       property:properties(
         id, name, address, city, country,
         wifi_name, wifi_pass,
@@ -31,8 +34,7 @@ export default async function GuestPage({ params }: Props) {
         emergency_procedure, emergency_contacts, local_police_number,
         concierge_phone, backup_phone,
         appliances_info, heating_info, tv_instructions, ac_instructions, cleaning_products_location,
-        check_in_time, check_out_time, inventory_notes,
-        syndic_required,
+        check_in_time, check_out_time, inventory_notes, syndic_required,
         google_maps_url, airbnb_review_url, booking_review_url, google_review_url,
         access_code_delay_hours
       )
@@ -56,19 +58,45 @@ export default async function GuestPage({ params }: Props) {
     )
   }
 
-  // Marquer la page comme vue
+  // Marquer vu
   await svc.from('reservations')
     .update({ guest_page_viewed_at: new Date().toISOString() })
     .eq('guest_page_token', token)
     .is('guest_page_viewed_at', null)
 
-  // Charger les upsells du logement
-  const property = (Array.isArray(res.property) ? res.property[0] : res.property) as { id: string } | null
+  const property = (Array.isArray(res.property) ? res.property[0] : res.property) as WizardProperty | null
+  const guest    = (Array.isArray(res.guest)    ? res.guest[0]    : res.guest)    as WizardGuest    | null
+
   const { data: upsells } = property?.id
-    ? await svc.from('upsells').select('*').eq('property_id', property.id).eq('is_active', true).order('sort_order')
+    ? await svc.from('upsells').select('id, name, description, price, currency, icon, category').eq('property_id', property.id).eq('is_active', true).order('sort_order')
     : { data: [] }
 
-  // Charger les messages
+  // ── Wizard onboarding si pas encore complété ───────────────────────────────
+  if (!res.onboarding_completed_at) {
+    const wizardRes: WizardReservation = {
+      id:              res.id,
+      check_in:        res.check_in,
+      check_out:       res.check_out,
+      platform:        res.platform,
+      num_guests:      res.num_guests,
+      nb_adults:       (res as unknown as { nb_adults: number | null }).nb_adults ?? 1,
+      arrival_time:    (res as unknown as { arrival_time: string | null }).arrival_time ?? null,
+      contract_signed: res.contract_signed,
+      onboarding_step: (res as unknown as { onboarding_step: number }).onboarding_step ?? 0,
+      identity_documents: (res as unknown as { identity_documents: object[] | null }).identity_documents ?? [],
+    }
+    return (
+      <OnboardingWizard
+        token={token}
+        reservation={wizardRes}
+        guest={guest}
+        property={property}
+        upsells={(upsells ?? []) as WizardUpsell[]}
+      />
+    )
+  }
+
+  // ── Guide complet (onboarding terminé) ────────────────────────────────────
   const { data: messages } = await svc
     .from('guest_messages')
     .select('id, direction, body, read_at, created_at')
@@ -78,9 +106,9 @@ export default async function GuestPage({ params }: Props) {
   return (
     <GuestPageClient
       token={token}
-      reservation={res as unknown as Parameters<typeof GuestPageClient>[0]['reservation']}
-      upsells={(upsells ?? []) as Parameters<typeof GuestPageClient>[0]['upsells']}
-      initialMessages={(messages ?? []) as Parameters<typeof GuestPageClient>[0]['initialMessages']}
+      reservation={res as unknown as Reservation}
+      upsells={(upsells ?? []) as Upsell[]}
+      initialMessages={(messages ?? []) as GuestMessage[]}
     />
   )
 }
