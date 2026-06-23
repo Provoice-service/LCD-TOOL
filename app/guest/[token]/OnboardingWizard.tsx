@@ -444,12 +444,20 @@ export default function OnboardingWizard({ token, reservation, guest, property, 
           </div>
         </div>
 
-        {/* Progress bar inline */}
+        {/* Progress bar inline — cliquable pour les étapes déjà complétées */}
         <div className="max-w-lg mx-auto px-5 pb-4 pt-2">
           <div className="flex items-center gap-1 mb-3">
-            {[1, 2, 3, 4].map(s => (
-              <div key={s} className="flex-1 h-1 rounded-full transition-all"
-                style={{ background: s <= step ? '#C4A044' : '#E8E4DC' }} />
+            {([1, 2, 3, 4] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => s < step && setStep(s)}
+                className="flex-1 h-1.5 rounded-full transition-all"
+                style={{
+                  background: s <= step ? '#C4A044' : '#E8E4DC',
+                  cursor: s < step ? 'pointer' : 'default',
+                  border: 'none', padding: 0,
+                }}
+              />
             ))}
           </div>
           <div className="flex items-center justify-between">
@@ -629,12 +637,24 @@ export default function OnboardingWizard({ token, reservation, guest, property, 
                 <p className="text-xs font-semibold mb-0.5" style={{ color: '#1A1A1A' }}>{t.contractTitle}</p>
                 <p className="text-xs" style={{ color: '#666666' }}>{t.contractSub}</p>
               </div>
-              {contractSigned && (
-                <div className="flex items-center gap-2 text-sm font-medium px-2" style={{ color: '#2E7D52' }}>
-                  <span>✓</span> {t.contractSigned}
+              {contractSigned ? (
+                <div className="rounded-xl p-5 flex items-center gap-4"
+                  style={{ background: '#E8F5E9', border: '1px solid #B8E6B8' }}>
+                  <span className="text-4xl">✅</span>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: '#2E7D32' }}>
+                      {lang === 'en' ? 'Contract signed ✓' : 'Contrat signé ✓'}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: '#4A9A4A' }}>
+                      {lang === 'en'
+                        ? 'You may proceed to the next step.'
+                        : 'Vous pouvez continuer à l\'étape suivante.'}
+                    </p>
+                  </div>
                 </div>
+              ) : (
+                <ContractTab token={token} lang={lang} onSigned={() => setContractSigned(true)} />
               )}
-              <ContractTab token={token} lang={lang} onSigned={() => setContractSigned(true)} />
             </div>
           )}
 
