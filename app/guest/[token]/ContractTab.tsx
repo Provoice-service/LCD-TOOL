@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Lang } from '@/lib/guest-page/translations'
+import type SignaturePad from 'signature_pad'
 
 interface Article { number: number; title: string; body: string }
 
@@ -49,8 +50,6 @@ const T = {
     download: 'Télécharger le PDF',
     alreadySigned: 'Votre contrat a été signé électroniquement.',
     noContract: 'Le contrat sera disponible avant votre arrivée.',
-    fr: 'FR',
-    en: 'EN',
     bothLangs: 'Afficher FR + EN',
   },
   en: {
@@ -71,8 +70,6 @@ const T = {
     download: 'Download PDF',
     alreadySigned: 'Your contract has been signed electronically.',
     noContract: 'The contract will be available before your arrival.',
-    fr: 'FR',
-    en: 'EN',
     bothLangs: 'Show FR + EN',
   },
 }
@@ -91,24 +88,24 @@ export default function ContractTab({
   const t = T[lang === 'en' ? 'en' : 'fr']
   const isAirbnb = (initialData?.reservation?.platform ?? '').toLowerCase() === 'airbnb'
 
-  const [data, setData]             = useState<ContractData | null>(initialData ?? null)
-  const [loading, setLoading]       = useState(!initialData)
+  const [data, setData]               = useState<ContractData | null>(initialData ?? null)
+  const [loading, setLoading]         = useState(!initialData)
   const [displayLang, setDisplayLang] = useState<'fr' | 'en' | 'both'>('fr')
-  const [scrollPct, setScrollPct]   = useState(0)
-  const [check1, setCheck1]         = useState(false)
-  const [check2, setCheck2]         = useState(false)
-  const [check3, setCheck3]         = useState(false)
-  const [signing, setSigning]       = useState(false)
-  const [signed, setSigned]         = useState(false)
-  const [pdfUrl, setPdfUrl]         = useState<string | null>(null)
-  const [signedAt, setSignedAt]     = useState<string | null>(null)
+  const [scrollPct, setScrollPct]     = useState(0)
+  const [check1, setCheck1]           = useState(false)
+  const [check2, setCheck2]           = useState(false)
+  const [check3, setCheck3]           = useState(false)
+  const [signing, setSigning]         = useState(false)
+  const [signed, setSigned]           = useState(false)
+  const [pdfUrl, setPdfUrl]           = useState<string | null>(null)
+  const [signedAt, setSignedAt]       = useState<string | null>(null)
   const [hasSignature, setHasSignature] = useState(false)
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const drawingRef = useRef(false)
-  const lastRef    = useRef<{ x: number; y: number } | null>(null)
+  const scrollRef      = useRef<HTMLDivElement>(null)
+  const canvasRef      = useRef<HTMLCanvasElement>(null)
+  const signaturePadRef = useRef<SignaturePad | null>(null)
 
+  // ── Chargement contrat ───────────────────────────────────────────────────────
   useEffect(() => {
     if (initialData) {
       if (initialData.reservation.contract_signed) {
@@ -131,7 +128,7 @@ export default function ContractTab({
       .finally(() => setLoading(false))
   }, [token, initialData])
 
-  // Scroll tracker
+  // ── Scroll tracker ───────────────────────────────────────────────────────────
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -143,83 +140,63 @@ export default function ContractTab({
     return () => el.removeEventListener('scroll', onScroll)
   }, [data])
 
-  // Canvas helpers
-  const getPos = (e: MouseEvent | TouchEvent, canvas: HTMLCanvasElement) => {
-    const rect = canvas.getBoundingClientRect()
-    if ('touches' in e) {
-      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top }
-    }
-    return { x: (e as MouseEvent).clientX - rect.left, y: (e as MouseEvent).clientY - rect.top }
-  }
-
-  const startDraw = useCallback((e: MouseEvent | TouchEvent) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    e.preventDefault()
-    drawingRef.current = true
-    lastRef.current = getPos(e, canvas)
-  }, [])
-
-  const draw = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!drawingRef.current) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    e.preventDefault()
-    const ctx = canvas.getContext('2d')
-    if (!ctx || !lastRef.current) return
-    const pos = getPos(e, canvas)
-    ctx.strokeStyle = '#1A1A1A'
-    ctx.lineWidth = 2
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.beginPath()
-    ctx.moveTo(lastRef.current.x, lastRef.current.y)
-    ctx.lineTo(pos.x, pos.y)
-    ctx.stroke()
-    lastRef.current = pos
-    setHasSignature(true)
-  }, [])
-
-  const endDraw = useCallback(() => {
-    drawingRef.current = false
-    lastRef.current = null
-  }, [])
-
+  // ── SignaturePad init (SSR-safe, dynamic import) ──────────────────────────────
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    canvas.addEventListener('mousedown', startDraw)
-    canvas.addEventListener('mousemove', draw)
-    canvas.addEventListener('mouseup', endDraw)
-    canvas.addEventListener('mouseleave', endDraw)
-    canvas.addEventListener('touchstart', startDraw, { passive: false })
-    canvas.addEventListener('touchmove', draw, { passive: false })
-    canvas.addEventListener('touchend', endDraw)
-    return () => {
-      canvas.removeEventListener('mousedown', startDraw)
-      canvas.removeEventListener('mousemove', draw)
-      canvas.removeEventListener('mouseup', endDraw)
-      canvas.removeEventListener('mouseleave', endDraw)
-      canvas.removeEventListener('touchstart', startDraw)
-      canvas.removeEventListener('touchmove', draw)
-      canvas.removeEventListener('touchend', endDraw)
-    }
-  }, [startDraw, draw, endDraw])
+    if (!canvasRef.current) return
+    let cleanup: (() => void) | undefined
 
+    const init = async () => {
+      const { default: SP } = await import('signature_pad')
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      // Resize canvas en tenant compte du devicePixelRatio (mobile)
+      const ratio = window.devicePixelRatio || 1
+      canvas.width  = canvas.offsetWidth  * ratio
+      canvas.height = canvas.offsetHeight * ratio
+      canvas.getContext('2d')?.scale(ratio, ratio)
+
+      const sp = new SP(canvas, { penColor: '#1A1A1A', minWidth: 1.5, maxWidth: 3 })
+      signaturePadRef.current = sp
+
+      sp.addEventListener('endStroke', () => {
+        setHasSignature(!sp.isEmpty())
+      })
+
+      // Resize handler — préserve les données tracées
+      const onResize = () => {
+        const r = window.devicePixelRatio || 1
+        const data = sp.toData()
+        canvas.width  = canvas.offsetWidth  * r
+        canvas.height = canvas.offsetHeight * r
+        canvas.getContext('2d')?.scale(r, r)
+        sp.clear()
+        sp.fromData(data)
+      }
+      window.addEventListener('resize', onResize)
+      cleanup = () => {
+        window.removeEventListener('resize', onResize)
+        sp.off()
+        signaturePadRef.current = null
+      }
+    }
+
+    init()
+    return () => cleanup?.()
+  }, [])
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
   const clearCanvas = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    ctx?.clearRect(0, 0, canvas.width, canvas.height)
+    signaturePadRef.current?.clear()
     setHasSignature(false)
   }
 
   const handleSign = async () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const sp = signaturePadRef.current
+    if (!sp || sp.isEmpty()) return
     setSigning(true)
     try {
-      const signatureImage = canvas.toDataURL('image/png')
+      const signatureImage = sp.toDataURL('image/png')
       const res = await fetch(`/api/guest/${token}/sign-contract`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -238,11 +215,12 @@ export default function ContractTab({
   }
 
   const allChecked = check1 && check2 && (isAirbnb || check3)
-  const canSign = allChecked && hasSignature && scrollPct >= 80
+  const canSign    = allChecked && hasSignature && scrollPct >= 80
 
+  // ── Render ────────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center py-16">
-      <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#C4A044', borderTopColor: 'transparent' }} />
+      <div className="w-6 h-6 rounded-full border-2 animate-spin" style={{ borderColor: '#C4A044', borderTopColor: 'transparent' }} />
     </div>
   )
 
@@ -255,22 +233,19 @@ export default function ContractTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
+      {/* Lang toggle */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold" style={{ color: '#1A1A1A' }}>{t.title}</h2>
         {data.content_en && (
           <div className="flex gap-1">
             {(['fr', 'en', 'both'] as const).map(l => (
-              <button
-                key={l}
-                onClick={() => setDisplayLang(l)}
+              <button key={l} onClick={() => setDisplayLang(l)}
                 className="text-xs px-2 py-1 rounded-md font-medium transition-all"
                 style={{
                   background: displayLang === l ? '#C4A044' : 'transparent',
                   color: displayLang === l ? '#fff' : '#666666',
                   border: `1px solid ${displayLang === l ? '#C4A044' : '#E8E4DC'}`,
-                }}
-              >
+                }}>
                 {l === 'both' ? t.bothLangs : l.toUpperCase()}
               </button>
             ))}
@@ -278,8 +253,8 @@ export default function ContractTab({
         )}
       </div>
 
-      {/* Already signed */}
-      {signed ? (
+      {/* Déjà signé */}
+      {signed && (
         <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: '#F0FAF0', border: '1px solid #B8E6B8' }}>
           <div className="flex items-center gap-2">
             <span className="text-lg">✅</span>
@@ -294,52 +269,43 @@ export default function ContractTab({
           </div>
           <p className="text-sm" style={{ color: '#2D7D2D' }}>{t.alreadySigned}</p>
           {pdfUrl && (
-            <a
-              href={pdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-lg font-medium w-fit"
-              style={{ background: '#C4A044', color: '#fff' }}
-            >
+              style={{ background: '#C4A044', color: '#fff' }}>
               📄 {t.download}
             </a>
           )}
         </div>
-      ) : null}
+      )}
 
-      {/* Contract text */}
+      {/* Corps du contrat */}
       {!signed && (
         <>
-          {/* Scroll hint */}
           <div className="text-xs text-center py-1" style={{ color: '#999999' }}>{t.scrollHint}</div>
 
-          {/* Scroll progress */}
+          {/* Barre de lecture */}
           <div className="flex items-center gap-2">
             <div className="flex-1 h-1.5 rounded-full" style={{ background: '#E8E4DC' }}>
-              <div
-                className="h-1.5 rounded-full transition-all"
-                style={{ width: `${scrollPct}%`, background: scrollPct >= 80 ? '#22AA44' : '#C4A044' }}
-              />
+              <div className="h-1.5 rounded-full transition-all"
+                style={{ width: `${scrollPct}%`, background: scrollPct >= 80 ? '#22AA44' : '#C4A044' }} />
             </div>
-            <span className="text-xs font-medium whitespace-nowrap" style={{ color: scrollPct >= 80 ? '#22AA44' : '#C4A044' }}>
+            <span className="text-xs font-medium whitespace-nowrap"
+              style={{ color: scrollPct >= 80 ? '#22AA44' : '#C4A044' }}>
               {t.readPct} {scrollPct}{t.ofContract}
             </span>
           </div>
 
-          {/* Articles scrollable */}
-          <div
-            ref={scrollRef}
-            className="rounded-xl overflow-y-auto"
-            style={{ maxHeight: '50vh', border: '1px solid #E8E4DC', background: '#FAFAFA' }}
-          >
+          {/* Articles */}
+          <div ref={scrollRef} className="rounded-xl overflow-y-auto"
+            style={{ maxHeight: '50vh', border: '1px solid #E8E4DC', background: '#FAFAFA' }}>
             {displayLang === 'both' ? (
-              // Side by side (stacked on mobile, grid on md+)
               <div className="divide-y" style={{ borderColor: '#E8E4DC' }}>
                 {articlesFr.map((artFr, i) => {
                   const artEn = articlesEn[i]
                   const hl = HIGHLIGHTED.has(artFr.number)
                   return (
-                    <div key={artFr.number} className="grid md:grid-cols-2 divide-x" style={{ borderColor: '#E8E4DC', background: hl ? '#FFF8F0' : 'transparent' }}>
+                    <div key={artFr.number} className="grid md:grid-cols-2 divide-x"
+                      style={{ borderColor: '#E8E4DC', background: hl ? '#FFF8F0' : 'transparent' }}>
                       <div className="p-3" style={hl ? { borderLeft: '3px solid #C4A044' } : {}}>
                         <p className="text-xs font-bold mb-1" style={{ color: '#C4A044' }}>Art. {artFr.number} — {artFr.title}</p>
                         <p className="text-xs leading-relaxed" style={{ color: '#333333' }}>{artFr.body}</p>
@@ -359,17 +325,9 @@ export default function ContractTab({
                 {(displayLang === 'en' ? articlesEn : articlesFr).map(art => {
                   const hl = HIGHLIGHTED.has(art.number)
                   return (
-                    <div
-                      key={art.number}
-                      className="p-3"
-                      style={{
-                        background: hl ? '#FFF8F0' : 'transparent',
-                        borderLeft: hl ? '3px solid #C4A044' : undefined,
-                      }}
-                    >
-                      <p className="text-xs font-bold mb-1" style={{ color: '#C4A044' }}>
-                        Art. {art.number} — {art.title}
-                      </p>
+                    <div key={art.number} className="p-3"
+                      style={{ background: hl ? '#FFF8F0' : 'transparent', borderLeft: hl ? '3px solid #C4A044' : undefined }}>
+                      <p className="text-xs font-bold mb-1" style={{ color: '#C4A044' }}>Art. {art.number} — {art.title}</p>
                       <p className="text-xs leading-relaxed" style={{ color: '#333333' }}>{art.body}</p>
                     </div>
                   )
@@ -386,11 +344,9 @@ export default function ContractTab({
               ...(!isAirbnb ? [{ key: 'c3', checked: check3, set: setCheck3, label: t.check3 }] : []),
             ].map(({ key, checked, set, label }) => (
               <label key={key} className="flex items-start gap-3 cursor-pointer">
-                <div
-                  className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center mt-0.5 transition-all"
+                <div className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center mt-0.5 transition-all"
                   style={{ background: checked ? '#C4A044' : '#fff', border: `2px solid ${checked ? '#C4A044' : '#C8C0B0'}` }}
-                  onClick={() => set(!checked)}
-                >
+                  onClick={() => set(!checked)}>
                   {checked && <span className="text-white text-xs font-bold">✓</span>}
                 </div>
                 <span className="text-xs leading-relaxed" style={{ color: '#333333' }}>{label}</span>
@@ -398,25 +354,21 @@ export default function ContractTab({
             ))}
           </div>
 
-          {/* Signature pad */}
+          {/* Signature */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{t.signTitle}</p>
-              <button
-                onClick={clearCanvas}
-                className="text-xs px-2 py-1 rounded-md"
-                style={{ color: '#666666', border: '1px solid #E8E4DC' }}
-              >
+              <button onClick={clearCanvas} className="text-xs px-2 py-1 rounded-md"
+                style={{ color: '#666666', border: '1px solid #E8E4DC' }}>
                 {t.clear}
               </button>
             </div>
             <p className="text-xs mb-2" style={{ color: '#999999' }}>{t.signHint}</p>
             <canvas
               ref={canvasRef}
-              width={600}
-              height={160}
               className="w-full rounded-xl touch-none"
               style={{
+                height: 140,
                 border: `2px solid ${hasSignature ? '#C4A044' : '#E8E4DC'}`,
                 background: '#FFFFFF',
                 cursor: 'crosshair',
@@ -425,7 +377,6 @@ export default function ContractTab({
             />
           </div>
 
-          {/* Sign button */}
           {!canSign && (
             <p className="text-xs text-center" style={{ color: '#999999' }}>
               {scrollPct < 80
@@ -437,16 +388,13 @@ export default function ContractTab({
             </p>
           )}
 
-          <button
-            onClick={handleSign}
-            disabled={!canSign || signing}
+          <button onClick={handleSign} disabled={!canSign || signing}
             className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
             style={{
               background: canSign && !signing ? '#C4A044' : '#E8E4DC',
               color: canSign && !signing ? '#fff' : '#999999',
               cursor: canSign && !signing ? 'pointer' : 'not-allowed',
-            }}
-          >
+            }}>
             {signing ? t.signing : t.sign}
           </button>
         </>
