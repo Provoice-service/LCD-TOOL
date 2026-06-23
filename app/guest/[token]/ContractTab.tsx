@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Lang } from '@/lib/guest-page/translations'
-import type SignaturePad from 'signature_pad'
+import { SignatureCanvas } from '@/components/guest/SignatureCanvas'
 
 interface Article { number: number; title: string; body: string }
 
@@ -99,11 +99,9 @@ export default function ContractTab({
   const [signed, setSigned]           = useState(false)
   const [pdfUrl, setPdfUrl]           = useState<string | null>(null)
   const [signedAt, setSignedAt]       = useState<string | null>(null)
-  const [hasSignature, setHasSignature] = useState(false)
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
 
-  const scrollRef      = useRef<HTMLDivElement>(null)
-  const canvasRef      = useRef<HTMLCanvasElement>(null)
-  const signaturePadRef = useRef<SignaturePad | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   // ── Chargement contrat ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -140,67 +138,15 @@ export default function ContractTab({
     return () => el.removeEventListener('scroll', onScroll)
   }, [data])
 
-  // ── SignaturePad init (SSR-safe, dynamic import) ──────────────────────────────
-  useEffect(() => {
-    if (!canvasRef.current) return
-    let cleanup: (() => void) | undefined
-
-    const init = async () => {
-      const { default: SP } = await import('signature_pad')
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      // Resize canvas en tenant compte du devicePixelRatio (mobile)
-      const ratio = window.devicePixelRatio || 1
-      canvas.width  = canvas.offsetWidth  * ratio
-      canvas.height = canvas.offsetHeight * ratio
-      canvas.getContext('2d')?.scale(ratio, ratio)
-
-      const sp = new SP(canvas, { penColor: '#1A1A1A', minWidth: 1.5, maxWidth: 3 })
-      signaturePadRef.current = sp
-
-      sp.addEventListener('endStroke', () => {
-        setHasSignature(!sp.isEmpty())
-      })
-
-      // Resize handler — préserve les données tracées
-      const onResize = () => {
-        const r = window.devicePixelRatio || 1
-        const data = sp.toData()
-        canvas.width  = canvas.offsetWidth  * r
-        canvas.height = canvas.offsetHeight * r
-        canvas.getContext('2d')?.scale(r, r)
-        sp.clear()
-        sp.fromData(data)
-      }
-      window.addEventListener('resize', onResize)
-      cleanup = () => {
-        window.removeEventListener('resize', onResize)
-        sp.off()
-        signaturePadRef.current = null
-      }
-    }
-
-    init()
-    return () => cleanup?.()
-  }, [])
-
   // ── Handlers ─────────────────────────────────────────────────────────────────
-  const clearCanvas = () => {
-    signaturePadRef.current?.clear()
-    setHasSignature(false)
-  }
-
   const handleSign = async () => {
-    const sp = signaturePadRef.current
-    if (!sp || sp.isEmpty()) return
+    if (!signatureDataUrl) return
     setSigning(true)
     try {
-      const signatureImage = sp.toDataURL('image/png')
       const res = await fetch(`/api/guest/${token}/sign-contract`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signature_image: signatureImage }),
+        body: JSON.stringify({ signature_image: signatureDataUrl }),
       })
       if (res.ok) {
         const json = await res.json() as { signed_at?: string; pdf_url?: string }
@@ -215,7 +161,7 @@ export default function ContractTab({
   }
 
   const allChecked = check1 && check2 && (isAirbnb || check3)
-  const canSign    = allChecked && hasSignature && scrollPct >= 80
+  const canSign    = allChecked && !!signatureDataUrl && scrollPct >= 80
 
   // ── Render ────────────────────────────────────────────────────────────────────
   if (loading) return (
@@ -356,25 +302,9 @@ export default function ContractTab({
 
           {/* Signature */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{t.signTitle}</p>
-              <button onClick={clearCanvas} className="text-xs px-2 py-1 rounded-md"
-                style={{ color: '#666666', border: '1px solid #E8E4DC' }}>
-                {t.clear}
-              </button>
-            </div>
+            <p className="text-sm font-semibold mb-1" style={{ color: '#1A1A1A' }}>{t.signTitle}</p>
             <p className="text-xs mb-2" style={{ color: '#999999' }}>{t.signHint}</p>
-            <canvas
-              ref={canvasRef}
-              className="w-full rounded-xl touch-none"
-              style={{
-                height: 140,
-                border: `2px solid ${hasSignature ? '#C4A044' : '#E8E4DC'}`,
-                background: '#FFFFFF',
-                cursor: 'crosshair',
-                display: 'block',
-              }}
-            />
+            <SignatureCanvas onChange={setSignatureDataUrl} />
           </div>
 
           {!canSign && (
