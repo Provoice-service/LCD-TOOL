@@ -116,6 +116,7 @@ const T: Record<Lang, Record<string, string>> = {
     of: 'sur',
     skip: 'Passer cette étape →',
     allDocsRequired: 'Tous les documents doivent être validés pour continuer',
+    back: '← Retour',
   },
   en: {
     step1Label: 'Your Information',
@@ -164,13 +165,26 @@ const T: Record<Lang, Record<string, string>> = {
     of: 'of',
     skip: 'Skip this step →',
     allDocsRequired: 'All documents must be validated to continue',
+    back: '← Back',
   },
 }
 
+// Normalise les catégories minuscules (seed SQL) vers libellés affichés
+const CATEGORY_NORMALIZE: Record<string, string> = {
+  confort: 'Confort', transport: 'Transport', nautique: 'Activités nautiques',
+  terrestre: 'Activités terrestres', sport: 'Sports', tourisme: 'Tourisme',
+  restauration: 'Restauration',
+}
+
 const UPSELL_CATEGORY_ICONS: Record<string, string> = {
-  Transport: '🚗', Confort: '🛋️', 'Activités nautiques': '🤿', Sports: '⚽',
-  Tourisme: '🏛️', Restauration: '🍽️', Autre: '✨',
-  'Activités terrestres': '🏔️',
+  Transport: '🚗', Confort: '🛋️', 'Activités nautiques': '🤿',
+  'Activités terrestres': '🏔️', Sports: '⚽', Tourisme: '🏛️',
+  Restauration: '🍽️', Autre: '✨',
+}
+
+function normalizeCategory(raw: string | null): string {
+  if (!raw) return 'Confort'
+  return CATEGORY_NORMALIZE[raw.toLowerCase()] ?? raw
 }
 
 function fmtDate(d: string | null, locale: string) {
@@ -384,7 +398,7 @@ export default function OnboardingWizard({ token, reservation, guest, property, 
   const STEP_LABELS = [t.step1Label, t.step2Label, t.step3Label, t.step4Label]
 
   const byCategory = upsells.reduce<Record<string, WizardUpsell[]>>((acc, u) => {
-    const cat = u.category ?? 'Confort'
+    const cat = normalizeCategory(u.category)
     ;(acc[cat] ??= []).push(u)
     return acc
   }, {})
@@ -672,7 +686,8 @@ export default function OnboardingWizard({ token, reservation, guest, property, 
       {/* Footer CTA */}
       <div className="fixed bottom-0 left-0 right-0 z-20 p-4"
         style={{ background: '#F8F7F5', borderTop: '1px solid #E8E4DC' }}>
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto space-y-2">
+
           {step === 1 && (
             <button onClick={saveStep1} disabled={!canStep1 || savingInfo}
               className="w-full py-3.5 rounded-xl text-sm font-semibold transition-all"
@@ -680,13 +695,21 @@ export default function OnboardingWizard({ token, reservation, guest, property, 
               {savingInfo ? t.saving : t.continue}
             </button>
           )}
+
           {step === 2 && (
-            <div className="space-y-2">
-              <button onClick={saveStep2} disabled={!canStep2}
-                className="w-full py-3.5 rounded-xl text-sm font-semibold transition-all"
-                style={{ background: canStep2 ? '#C4A044' : '#E8E4DC', color: canStep2 ? '#fff' : '#999999' }}>
-                {t.continue}
-              </button>
+            <>
+              <div className="flex gap-2">
+                <button onClick={() => setStep(1)}
+                  className="flex-1 py-3.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: '#FFFFFF', color: '#666666', border: '1px solid #E8E4DC' }}>
+                  {t.back}
+                </button>
+                <button onClick={saveStep2} disabled={!canStep2}
+                  className="flex-1 py-3.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: canStep2 ? '#C4A044' : '#E8E4DC', color: canStep2 ? '#fff' : '#999999' }}>
+                  {t.continue}
+                </button>
+              </div>
               {!canStep2 && anyDocUploaded && (
                 <p className="text-xs text-center" style={{ color: '#999999' }}>{t.allDocsRequired}</p>
               )}
@@ -695,21 +718,37 @@ export default function OnboardingWizard({ token, reservation, guest, property, 
                   {t.skip}
                 </button>
               )}
+            </>
+          )}
+
+          {step === 3 && (
+            <div className="flex gap-2">
+              <button onClick={() => setStep(2)}
+                className="flex-1 py-3.5 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: '#FFFFFF', color: '#666666', border: '1px solid #E8E4DC' }}>
+                {t.back}
+              </button>
+              <button onClick={saveStep3} disabled={!canStep3}
+                className="flex-1 py-3.5 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: canStep3 ? '#C4A044' : '#E8E4DC', color: canStep3 ? '#fff' : '#999999' }}>
+                {t.continue}
+              </button>
             </div>
           )}
-          {step === 3 && (
-            <button onClick={saveStep3} disabled={!canStep3}
-              className="w-full py-3.5 rounded-xl text-sm font-semibold transition-all"
-              style={{ background: canStep3 ? '#C4A044' : '#E8E4DC', color: canStep3 ? '#fff' : '#999999' }}>
-              {t.continue}
-            </button>
-          )}
+
           {step === 4 && (
-            <button onClick={complete} disabled={finishing}
-              className="w-full py-3.5 rounded-xl text-sm font-semibold"
-              style={{ background: '#C4A044', color: '#FFFFFF' }}>
-              {finishing ? t.finishing : t.finish}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setStep(3)}
+                className="flex-1 py-3.5 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: '#FFFFFF', color: '#666666', border: '1px solid #E8E4DC' }}>
+                {t.back}
+              </button>
+              <button onClick={complete} disabled={finishing}
+                className="flex-1 py-3.5 rounded-xl text-sm font-semibold"
+                style={{ background: '#C4A044', color: '#FFFFFF' }}>
+                {finishing ? t.finishing : t.finish}
+              </button>
+            </div>
           )}
         </div>
       </div>

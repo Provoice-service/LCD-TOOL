@@ -67,9 +67,17 @@ export default async function GuestPage({ params }: Props) {
   const property = (Array.isArray(res.property) ? res.property[0] : res.property) as WizardProperty | null
   const guest    = (Array.isArray(res.guest)    ? res.guest[0]    : res.guest)    as WizardGuest    | null
 
-  const { data: upsells } = property?.id
-    ? await svc.from('upsells').select('id, name, description, price, currency, icon, category').eq('property_id', property.id).eq('is_active', true).order('sort_order')
-    : { data: [] }
+  // Upsells globaux (property_id IS NULL) + propres au logement
+  const upsellFilter = property?.id
+    ? `property_id.is.null,property_id.eq.${property.id}`
+    : 'property_id.is.null'
+  const { data: upsells, error: upsellsError } = await svc
+    .from('upsells')
+    .select('id, name, description, price, currency, icon, category')
+    .or(upsellFilter)
+    .eq('is_active', true)
+    .order('sort_order')
+  if (upsellsError) console.error('[GuestPage] upsells error:', upsellsError.message)
 
   // ── Wizard onboarding si pas encore complété ───────────────────────────────
   if (!res.onboarding_completed_at) {
