@@ -7,7 +7,7 @@ import { fr } from 'date-fns/locale'
 import { TRANSLATIONS, LANG_FLAG, type Lang } from '@/lib/guest-page/translations'
 import {
   Copy, Check, MapPin, Phone, MessageCircle, Upload,
-  ExternalLink, Send, Clock, Star, Wifi, Loader2, Eye, EyeOff, ChevronLeft,
+  ExternalLink, Send, Clock, Wifi, Loader2, Eye, EyeOff, ChevronLeft, ChevronDown,
 } from 'lucide-react'
 import ContractTab from './ContractTab'
 
@@ -29,6 +29,14 @@ interface Property {
   google_maps_url: string | null; airbnb_review_url: string | null
   booking_review_url: string | null; google_review_url: string | null
   access_code_delay_hours: number | null
+  // Champs optionnels (future-ready)
+  coffee_machine_type?: string | null
+  vacuum_location?: string | null
+  iron_location?: string | null
+  washing_machine_info?: string | null
+  restaurants_nearby?: string | null
+  transport_info?: string | null
+  pharmacy_nearby?: string | null
 }
 
 interface Guest { id: string; full_name: string; phone: string | null; email: string | null; language: string }
@@ -54,41 +62,48 @@ export interface GuestMessage {
   read_at: string | null; created_at: string
 }
 
-// ── Nav items ─────────────────────────────────────────────────────────────────
+// ── Navigation ────────────────────────────────────────────────────────────────
 
-type TabId = 'reservation' | 'checkin' | 'checkout' | 'wifi' | 'guide' | 'neighborhood'
-           | 'emergency' | 'extras' | 'contract' | 'identity' | 'messages' | 'reviews'
+type TabId = 'checkin' | 'wifi' | 'equipment' | 'parking' | 'trash' | 'guide'
+           | 'neighborhood' | 'restaurants' | 'transport' | 'visits'
+           | 'checkout' | 'emergency' | 'messages'
+           | 'extras' | 'contract' | 'identity' | 'reservation'
 
 interface NavItem { id: TabId; emoji: string; labelFr: string; labelEn: string }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'checkin',      emoji: '🔑', labelFr: 'Accès',        labelEn: 'Access'      },
-  { id: 'wifi',         emoji: '📶', labelFr: 'WiFi & Équip.', labelEn: 'WiFi & Tech' },
-  { id: 'guide',        emoji: '📋', labelFr: 'Règlement',     labelEn: 'House Rules' },
-  { id: 'neighborhood', emoji: '🏪', labelFr: 'Quartier',      labelEn: 'Area'        },
-  { id: 'extras',       emoji: '✨', labelFr: 'Services',      labelEn: 'Services'    },
-  { id: 'emergency',    emoji: '🆘', labelFr: 'Urgences',      labelEn: 'Emergency'   },
-  { id: 'checkout',     emoji: '🚪', labelFr: 'Départ',        labelEn: 'Checkout'    },
-  { id: 'messages',     emoji: '💬', labelFr: 'Messages',      labelEn: 'Messages'    },
-  { id: 'reviews',      emoji: '⭐', labelFr: 'Avis',          labelEn: 'Reviews'     },
-  { id: 'contract',     emoji: '📄', labelFr: 'Contrat',       labelEn: 'Contract'    },
-  { id: 'identity',     emoji: '🪪', labelFr: 'Identité',      labelEn: 'Identity'    },
-  { id: 'reservation',  emoji: '🗓️', labelFr: 'Réservation',   labelEn: 'Booking'     },
+const NAV_GRID: NavItem[] = [
+  { id: 'checkin',      emoji: '🔑', labelFr: 'Accès',        labelEn: 'Access'    },
+  { id: 'wifi',         emoji: '📶', labelFr: 'WiFi',          labelEn: 'WiFi'      },
+  { id: 'equipment',    emoji: '❄️', labelFr: 'Équipements',  labelEn: 'Equipment' },
+  { id: 'parking',      emoji: '🅿️', labelFr: 'Parking',      labelEn: 'Parking'   },
+  { id: 'trash',        emoji: '🗑️', labelFr: 'Poubelles',    labelEn: 'Trash'     },
+  { id: 'guide',        emoji: '📋', labelFr: 'Règles',        labelEn: 'Rules'     },
+  { id: 'neighborhood', emoji: '🏪', labelFr: 'Quartier',      labelEn: 'Area'      },
+  { id: 'restaurants',  emoji: '🍽️', labelFr: 'Restaurants',  labelEn: 'Eat'       },
+  { id: 'transport',    emoji: '🚕', labelFr: 'Transport',     labelEn: 'Transport' },
+  { id: 'visits',       emoji: '🏛️', labelFr: 'Visites',      labelEn: 'Visits'    },
+  { id: 'checkout',     emoji: '🚪', labelFr: 'Départ',        labelEn: 'Checkout'  },
+  { id: 'emergency',    emoji: '🆘', labelFr: 'Urgences',      labelEn: 'Emergency' },
 ]
 
 const SECTION_TITLES: Record<TabId, { fr: string; en: string; emoji: string }> = {
-  reservation:  { fr: 'Ma réservation',    en: 'My booking',       emoji: '🗓️' },
   checkin:      { fr: 'Accès & Arrivée',   en: 'Access & Arrival', emoji: '🔑' },
-  checkout:     { fr: 'Départ',            en: 'Check-out',        emoji: '🚪' },
-  wifi:         { fr: 'WiFi & Équipements', en: 'WiFi & Equipment', emoji: '📶' },
+  wifi:         { fr: 'WiFi',              en: 'WiFi',             emoji: '📶' },
+  equipment:    { fr: 'Équipements',       en: 'Equipment',        emoji: '❄️' },
+  parking:      { fr: 'Parking',           en: 'Parking',          emoji: '🅿️' },
+  trash:        { fr: 'Poubelles & Tri',   en: 'Trash',            emoji: '🗑️' },
   guide:        { fr: 'Règlement',         en: 'House Rules',      emoji: '📋' },
   neighborhood: { fr: 'Quartier',          en: 'Area Guide',       emoji: '🏪' },
+  restaurants:  { fr: 'Restaurants',       en: 'Restaurants',      emoji: '🍽️' },
+  transport:    { fr: 'Transport',         en: 'Transport',        emoji: '🚕' },
+  visits:       { fr: 'Visites',           en: 'Sightseeing',      emoji: '🏛️' },
+  checkout:     { fr: 'Départ',            en: 'Checkout',         emoji: '🚪' },
   emergency:    { fr: 'Urgences',          en: 'Emergency',        emoji: '🆘' },
+  messages:     { fr: 'Messages',          en: 'Messages',         emoji: '💬' },
   extras:       { fr: 'Services',          en: 'Services',         emoji: '✨' },
   contract:     { fr: 'Contrat',           en: 'Contract',         emoji: '📄' },
   identity:     { fr: 'Pièce d\'identité', en: 'Identity',         emoji: '🪪' },
-  messages:     { fr: 'Messages',          en: 'Messages',         emoji: '💬' },
-  reviews:      { fr: 'Laisser un avis',   en: 'Leave a review',   emoji: '⭐' },
+  reservation:  { fr: 'Réservation',       en: 'Booking',          emoji: '🗓️' },
 }
 
 // ── Composant principal ───────────────────────────────────────────────────────
@@ -102,23 +117,26 @@ interface Props {
 
 export function GuestPageClient({ token, reservation: res, upsells, initialMessages }: Props) {
   const detectedLang = (res.guest?.language ?? res.guest_page_language ?? 'fr') as Lang
-  const [lang, setLang] = useState<Lang>((['fr', 'en', 'ar', 'es'] as Lang[]).includes(detectedLang) ? detectedLang : 'fr')
-  const [activeTab, setActiveTab] = useState<TabId | null>(null)
-  const [messages, setMessages]   = useState<GuestMessage[]>(initialMessages)
-  const [msgBody, setMsgBody]     = useState('')
-  const [sendingMsg, setSendingMsg] = useState(false)
-  const [copiedCode, setCopiedCode] = useState(false)
-  const [copiedWifi, setCopiedWifi] = useState(false)
-  const [showPass, setShowPass]   = useState(false)
-  const [idUploaded, setIdUploaded] = useState(res.id_received)
-  const [uploading, setUploading]   = useState(false)
-  const [extraOpen, setExtraOpen]   = useState<string | null>(null)
-  const [extraQty, setExtraQty]     = useState(1)
-  const [extraNote, setExtraNote]   = useState('')
-  const [extraSent, setExtraSent]   = useState<Record<string, boolean>>({})
+  const [lang, setLang]               = useState<Lang>((['fr', 'en', 'ar', 'es'] as Lang[]).includes(detectedLang) ? detectedLang : 'fr')
+  const [activeTab, setActiveTab]     = useState<TabId | null>(null)
+  const [messages, setMessages]       = useState<GuestMessage[]>(initialMessages)
+  const [msgBody, setMsgBody]         = useState('')
+  const [sendingMsg, setSendingMsg]   = useState(false)
+  const [copiedCode, setCopiedCode]   = useState(false)
+  const [copiedWifiName, setCopiedWifiName] = useState(false)
+  const [copiedWifiPass, setCopiedWifiPass] = useState(false)
+  const [copiedDigicode, setCopiedDigicode] = useState(false)
+  const [showPass, setShowPass]       = useState(false)
+  const [idUploaded, setIdUploaded]   = useState(res.id_received)
+  const [uploading, setUploading]     = useState(false)
+  const [extraOpen, setExtraOpen]     = useState<string | null>(null)
+  const [extraQty, setExtraQty]       = useState(1)
+  const [extraNote, setExtraNote]     = useState('')
+  const [extraSent, setExtraSent]     = useState<Record<string, boolean>>({})
   const [sendingExtra, setSendingExtra] = useState(false)
-  const [lateSent, setLateSent]     = useState(false)
-  const [checklistDone, setChecklistDone] = useState<Record<string, boolean>>({})
+  const [lateSent, setLateSent]       = useState(false)
+  const [checklistDone, setChecklistDone] = useState<Record<number, boolean>>({})
+  const [openEquip, setOpenEquip]     = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const t = TRANSLATIONS[lang]
@@ -136,11 +154,10 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
   const hoursLeft   = displayFrom && !codeVisible ? differenceInHours(displayFrom, new Date()) : 0
 
   const unreadCount = messages.filter(m => m.direction === 'host' && !m.read_at).length
-
   const address = [p?.address, p?.city].filter(Boolean).join(', ')
   const mapsUrl = p?.google_maps_url ?? (address ? `https://maps.google.com/?q=${encodeURIComponent(address)}` : null)
+  const city = p?.city ?? ''
 
-  // Auto-refresh messages
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -152,7 +169,6 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
     return () => clearInterval(interval)
   }, [token])
 
-  // Scroll to bottom on messages
   useEffect(() => {
     if (activeTab === 'messages') {
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
@@ -162,9 +178,7 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
   // ── Actions ────────────────────────────────────────────────────────────────
 
   function copy(text: string, setFn: (v: boolean) => void) {
-    navigator.clipboard.writeText(text).then(() => {
-      setFn(true); setTimeout(() => setFn(false), 2000)
-    })
+    navigator.clipboard.writeText(text).then(() => { setFn(true); setTimeout(() => setFn(false), 2000) })
   }
 
   async function sendMessage() {
@@ -174,10 +188,7 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ body: msgBody.trim() }),
     })
-    setMessages(prev => [...prev, {
-      id: Date.now().toString(), direction: 'guest', body: msgBody.trim(),
-      read_at: null, created_at: new Date().toISOString(),
-    }])
+    setMessages(prev => [...prev, { id: Date.now().toString(), direction: 'guest', body: msgBody.trim(), read_at: null, created_at: new Date().toISOString() }])
     setMsgBody(''); setSendingMsg(false)
   }
 
@@ -206,39 +217,28 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
     setLateSent(true); setActiveTab('messages')
   }
 
-  // ── Sous-composants ────────────────────────────────────────────────────────
+  // ── Composants utilitaires ────────────────────────────────────────────────
 
   function CopyBtn({ text, copied, onCopy }: { text: string; copied: boolean; onCopy: () => void }) {
     return (
       <button onClick={onCopy}
         className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors shrink-0"
         style={{ background: copied ? 'rgba(46,125,82,0.10)' : 'rgba(196,160,68,0.10)', color: copied ? '#2E7D52' : '#A88830' }}>
-        {copied ? <><Check className="h-3.5 w-3.5" /> Copié</> : <><Copy className="h-3.5 w-3.5" /> Copier</>}
+        {copied ? <><Check className="h-3.5 w-3.5" />Copié</> : <><Copy className="h-3.5 w-3.5" />Copier</>}
       </button>
     )
   }
 
-  function ActionBtn({ href, icon, label, variant = 'gold' }: { href: string; icon: React.ReactNode; label: string; variant?: 'gold' | 'green' | 'ghost' }) {
-    const styles = {
-      gold:  { background: '#C4A044',                             color: '#fff' },
-      green: { background: 'rgba(37,211,102,0.10)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366' },
-      ghost: { background: '#F8F7F5',               border: '1px solid #E8E4DC',              color: '#1A1A1A' },
-    }
+  function InfoCard({ title, emoji, bg, borderColor, children }: {
+    title: string; emoji?: string; bg?: string; borderColor?: string; children: React.ReactNode
+  }) {
     return (
-      <a href={href} target={href.startsWith('tel:') ? undefined : '_blank'} rel="noreferrer"
-        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
-        style={styles[variant]}>
-        {icon} {label}
-      </a>
-    )
-  }
-
-  function InfoCard({ title, emoji, children }: { title: string; emoji?: string; children: React.ReactNode }) {
-    return (
-      <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+      <div className="rounded-2xl overflow-hidden shadow-sm"
+        style={{ background: bg ?? '#FFFFFF', border: `1px solid ${borderColor ?? '#E8E4DC'}` }}>
         {title && (
-          <div className="px-5 pt-4 pb-3" style={{ borderBottom: '1px solid #F2F0EC' }}>
-            <p className="text-[11px] font-semibold uppercase tracking-wider flex items-center gap-2" style={{ color: '#999999' }}>
+          <div className="px-5 pt-4 pb-3" style={{ borderBottom: `1px solid ${borderColor ?? '#F2F0EC'}` }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider flex items-center gap-2"
+              style={{ color: borderColor ? '#A88830' : '#999999' }}>
               {emoji && <span className="text-sm">{emoji}</span>} {title}
             </p>
           </div>
@@ -248,12 +248,22 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
     )
   }
 
-  // ── Sections ───────────────────────────────────────────────────────────────
+  function MapsBtn({ query }: { query: string }) {
+    const url = `https://www.google.com/maps/search/${encodeURIComponent(query + (city ? ` ${city}` : ''))}`
+    return (
+      <a href={url} target="_blank" rel="noreferrer"
+        className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium shrink-0"
+        style={{ background: '#E8F4FF', color: '#1a73e8', border: '1px solid #B8D8FF' }}>
+        <MapPin className="h-3 w-3" />Maps
+      </a>
+    )
+  }
+
+  // ── Section Accès ─────────────────────────────────────────────────────────
 
   function SectionAccess() {
     return (
       <div className="space-y-4">
-        {/* Adresse + Maps */}
         {address && (
           <InfoCard title="Adresse" emoji="📍">
             <p className="text-sm font-medium mb-3" style={{ color: '#1A1A1A' }}>{address}</p>
@@ -265,17 +275,14 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
               </a>
             )}
             {address && (
-              <div className="mt-3 rounded-xl overflow-hidden" style={{ height: 160 }}>
-                <iframe
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed&z=15`}
-                  className="w-full h-full border-0" loading="lazy"
-                />
+              <div className="mt-3 rounded-xl overflow-hidden" style={{ height: 150 }}>
+                <iframe src={`https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed&z=15`}
+                  className="w-full h-full border-0" loading="lazy" />
               </div>
             )}
           </InfoCard>
         )}
 
-        {/* Code d'accès */}
         {res.access_code && (
           <InfoCard title="Code d'accès" emoji="🔢">
             {codeVisible ? (
@@ -295,9 +302,7 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
               <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background: '#FFF8F0', border: '1px solid #FFDCB0' }}>
                 <Clock className="h-5 w-5 shrink-0" style={{ color: '#C17C1A' }} />
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: '#C17C1A' }}>
-                    Code disponible dans {hoursLeft}h
-                  </p>
+                  <p className="text-sm font-semibold" style={{ color: '#C17C1A' }}>Code disponible dans {hoursLeft}h</p>
                   {displayFrom && (
                     <p className="text-xs mt-0.5" style={{ color: '#C17C1A' }}>
                       Disponible le {format(displayFrom, "dd MMM 'à' HH'h'mm", { locale: fr })}
@@ -309,7 +314,6 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
           </InfoCard>
         )}
 
-        {/* Instructions numérotées */}
         {p?.access_instructions_full && (
           <InfoCard title="Instructions d'entrée" emoji="📝">
             <ol className="space-y-3">
@@ -324,7 +328,19 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
           </InfoCard>
         )}
 
-        {/* Heure + étage */}
+        {/* Code immeuble / Digicode */}
+        {p?.key_box_code && (
+          <InfoCard title="Code immeuble / Digicode" emoji="🔏">
+            <div className="flex items-center justify-between p-4 rounded-xl"
+              style={{ background: '#F8F7F5', border: '2px solid #C4A044' }}>
+              <span className="text-3xl font-mono font-bold tracking-[0.25em]" style={{ color: '#1A1A1A' }}>
+                {p.key_box_code}
+              </span>
+              <CopyBtn text={p.key_box_code} copied={copiedDigicode} onCopy={() => copy(p!.key_box_code!, setCopiedDigicode)} />
+            </div>
+          </InfoCard>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           {p?.check_in_time && (
             <div className="rounded-2xl p-4 text-center shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
@@ -340,181 +356,529 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
           )}
         </div>
 
-        {/* Contacts */}
         {p?.concierge_phone && (
           <div className="flex gap-2">
-            <ActionBtn href={`tel:${p.concierge_phone}`} icon={<Phone className="h-4 w-4" />} label="Appeler" variant="ghost" />
-            <ActionBtn href={`https://wa.me/${p.concierge_phone.replace(/\D/g, '')}`} icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" variant="green" />
+            <a href={`tel:${p.concierge_phone}`}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
+              style={{ background: '#F8F7F5', border: '1px solid #E8E4DC', color: '#1A1A1A' }}>
+              <Phone className="h-4 w-4" /> Appeler
+            </a>
+            <a href={`https://wa.me/${p.concierge_phone.replace(/\D/g, '')}`}
+              target="_blank" rel="noreferrer"
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(37,211,102,0.10)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366' }}>
+              <MessageCircle className="h-4 w-4" /> WhatsApp
+            </a>
           </div>
         )}
       </div>
     )
   }
 
+  // ── Section WiFi ──────────────────────────────────────────────────────────
+
   function SectionWifi() {
+    if (!p?.wifi_name && !p?.wifi_pass) return <Empty text="Informations WiFi bientôt disponibles." />
     return (
       <div className="space-y-4">
-        {(p?.wifi_name || p?.wifi_pass) && (
-          <InfoCard title="Réseau WiFi" emoji="📶">
-            <div className="space-y-3">
-              {p?.wifi_name && (
-                <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: '#F8F7F5', border: '1px solid #E8E4DC' }}>
-                  <div className="flex items-center gap-2">
-                    <Wifi className="h-4 w-4" style={{ color: '#C4A044' }} />
-                    <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{p.wifi_name}</p>
-                  </div>
-                  <CopyBtn text={p.wifi_name} copied={false} onCopy={() => navigator.clipboard.writeText(p!.wifi_name!)} />
-                </div>
-              )}
-              {p?.wifi_pass && (
-                <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: '#F8F7F5', border: '1px solid #E8E4DC' }}>
-                  <p className="text-sm font-mono" style={{ color: '#1A1A1A' }}>
-                    {showPass ? p.wifi_pass : '•'.repeat(Math.min(p.wifi_pass.length, 10))}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setShowPass(!showPass)} className="p-1" style={{ color: '#999999' }}>
-                      {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                    <CopyBtn text={p.wifi_pass} copied={copiedWifi} onCopy={() => copy(p!.wifi_pass!, setCopiedWifi)} />
-                  </div>
-                </div>
-              )}
+        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#999999' }}>
+          Connexion WiFi
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {p?.wifi_name && (
+            <div className="rounded-2xl p-4 shadow-sm flex flex-col gap-3" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+              <Wifi className="h-8 w-8" style={{ color: '#C4A044' }} />
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#999999' }}>Réseau</p>
+                <p className="text-sm font-bold break-all" style={{ color: '#1A1A1A' }}>{p.wifi_name}</p>
+              </div>
+              <CopyBtn text={p.wifi_name} copied={copiedWifiName} onCopy={() => copy(p!.wifi_name!, setCopiedWifiName)} />
             </div>
-          </InfoCard>
-        )}
+          )}
+          {p?.wifi_pass && (
+            <div className="rounded-2xl p-4 shadow-sm flex flex-col gap-3" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+              <span className="text-2xl leading-none">🔑</span>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#999999' }}>Mot de passe</p>
+                <p className="text-sm font-mono font-bold break-all" style={{ color: '#1A1A1A' }}>
+                  {showPass ? p.wifi_pass : '•'.repeat(Math.min(p.wifi_pass.length, 8))}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowPass(!showPass)}
+                  className="p-1.5 rounded-lg" style={{ background: '#F8F7F5', color: '#999999' }}>
+                  {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+                <CopyBtn text={p.wifi_pass} copied={copiedWifiPass} onCopy={() => copy(p!.wifi_pass!, setCopiedWifiPass)} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
-        {p?.appliances_info && (
-          <InfoCard title="Électroménager" emoji="🍳">
-            <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A1A1A' }}>{p.appliances_info}</p>
+  // ── Section Équipements ───────────────────────────────────────────────────
+
+  function SectionEquipment() {
+    const items = [
+      p?.ac_instructions          && { id: 'ac',      emoji: '❄️', name: 'Climatisation',    text: p.ac_instructions },
+      p?.heating_info             && { id: 'heat',    emoji: '🔥', name: 'Chauffage',         text: p.heating_info },
+      p?.coffee_machine_type      && { id: 'coffee',  emoji: '☕', name: 'Machine à café',   text: p.coffee_machine_type },
+      p?.tv_instructions          && { id: 'tv',      emoji: '📺', name: 'Télévision',        text: p.tv_instructions },
+      p?.washing_machine_info     && { id: 'wash',    emoji: '🫧', name: 'Lave-linge',        text: p.washing_machine_info },
+      p?.appliances_info          && { id: 'app',     emoji: '🍳', name: 'Électroménager',    text: p.appliances_info },
+      p?.cleaning_products_location && { id: 'clean', emoji: '🧴', name: 'Produits ménagers', text: p.cleaning_products_location },
+      p?.vacuum_location          && { id: 'vacuum',  emoji: '🧹', name: 'Aspirateur',        text: p.vacuum_location },
+      p?.iron_location            && { id: 'iron',    emoji: '👔', name: 'Fer à repasser',    text: p.iron_location },
+    ].filter(Boolean) as { id: string; emoji: string; name: string; text: string }[]
+
+    if (items.length === 0) return <Empty text="Informations équipements bientôt disponibles." />
+
+    return (
+      <div className="space-y-3">
+        {items.map(item => (
+          <div key={item.id} className="rounded-2xl overflow-hidden shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+            <button className="w-full flex items-center gap-4 px-5 py-4"
+              onClick={() => setOpenEquip(openEquip === item.id ? null : item.id)}>
+              <span className="text-4xl">{item.emoji}</span>
+              <span className="flex-1 text-left text-sm font-semibold" style={{ color: '#1A1A1A' }}>{item.name}</span>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200"
+                style={{ color: '#999999', transform: openEquip === item.id ? 'rotate(180deg)' : 'none' }} />
+            </button>
+            {openEquip === item.id && (
+              <div className="px-5 pb-4" style={{ borderTop: '1px solid #F2F0EC' }}>
+                <div className="space-y-1.5 pt-3">
+                  {item.text.split('\n').filter(l => l.trim()).map((line, i) => (
+                    <div key={i} className="flex gap-2">
+                      <span className="text-sm shrink-0 font-bold" style={{ color: '#C4A044' }}>›</span>
+                      <p className="text-sm" style={{ color: '#1A1A1A' }}>{line.replace(/^[-•*\d.)\s]+/, '')}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ── Section Parking ───────────────────────────────────────────────────────
+
+  function SectionParking() {
+    if (!p?.parking_info && !p?.elevator_info)
+      return <Empty text="Aucune information parking pour ce logement." />
+    return (
+      <div className="space-y-4">
+        {p?.parking_info && (
+          <InfoCard title="Parking & Stationnement" emoji="🅿️">
+            <div className="space-y-2 mb-3">
+              {p.parking_info.split('\n').filter(l => l.trim()).map((line, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <span className="shrink-0 mt-0.5" style={{ color: '#C4A044' }}>›</span>
+                  <p className="text-sm" style={{ color: '#1A1A1A' }}>{line.replace(/^[-•*]\s*/, '')}</p>
+                </div>
+              ))}
+            </div>
+            {city && (
+              <a href={`https://www.google.com/maps/search/parking+${encodeURIComponent(city)}`}
+                target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium"
+                style={{ color: '#1a73e8' }}>
+                <MapPin className="h-3 w-3" />Voir parkings sur Maps
+              </a>
+            )}
           </InfoCard>
         )}
-        {p?.tv_instructions && (
-          <InfoCard title="Télévision" emoji="📺">
-            <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A1A1A' }}>{p.tv_instructions}</p>
-          </InfoCard>
-        )}
-        {(p?.heating_info || p?.ac_instructions) && (
-          <InfoCard title="Chauffage & Climatisation" emoji="❄️">
-            {p?.heating_info && <p className="text-sm whitespace-pre-wrap mb-2" style={{ color: '#1A1A1A' }}>{p.heating_info}</p>}
-            {p?.ac_instructions && <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A1A1A' }}>{p.ac_instructions}</p>}
+        {p?.elevator_info && (
+          <InfoCard title="Ascenseur" emoji="🛗">
+            <p className="text-sm" style={{ color: '#1A1A1A' }}>{p.elevator_info}</p>
           </InfoCard>
         )}
       </div>
     )
   }
 
-  function SectionGuide() {
-    const rules = [
-      p?.noise_rules   && { icon: '🔕', text: p.noise_rules },
-      p?.smoking_rules && { icon: '🚬', text: p.smoking_rules },
-      p?.pet_rules     && { icon: '🐾', text: p.pet_rules },
-      p?.trash_info    && { icon: '🗑️', text: p.trash_info },
-      p?.parking_info  && { icon: '🅿️', text: p.parking_info },
-      p?.elevator_info && { icon: '🛗', text: p.elevator_info },
-      p?.cleaning_products_location && { icon: '🧹', text: p.cleaning_products_location },
-    ].filter(Boolean) as { icon: string; text: string }[]
+  // ── Section Poubelles ─────────────────────────────────────────────────────
 
+  function SectionTrash() {
+    if (!p?.trash_info) return <Empty text="Informations poubelles bientôt disponibles." />
+    return (
+      <div className="space-y-4">
+        <InfoCard title="Poubelles & Tri sélectif" emoji="🗑️">
+          <div className="space-y-2">
+            {p.trash_info.split('\n').filter(l => l.trim()).map((line, i) => (
+              <div key={i} className="flex gap-2 items-start">
+                <span className="text-base shrink-0">🗑️</span>
+                <p className="text-sm" style={{ color: '#1A1A1A' }}>{line.replace(/^[-•*]\s*/, '')}</p>
+              </div>
+            ))}
+          </div>
+        </InfoCard>
+      </div>
+    )
+  }
+
+  // ── Section Règlement ─────────────────────────────────────────────────────
+
+  function SectionGuide() {
     return (
       <div className="space-y-4">
         {p?.house_rules && (
           <InfoCard title="Règlement intérieur" emoji="📋">
             <div className="space-y-2">
-              {p.house_rules.split('\n').filter(l => l.trim()).map((line, i) => (
-                <div key={i} className="flex gap-2 items-start">
-                  <span className="text-sm mt-0.5 shrink-0">
-                    {line.toLowerCase().includes('interdit') || line.toLowerCase().includes('pas de') || line.toLowerCase().includes('no ')
-                      ? '❌' : '✅'}
-                  </span>
-                  <p className="text-sm" style={{ color: '#1A1A1A' }}>{line.replace(/^[-•*]\s*/, '')}</p>
-                </div>
-              ))}
+              {p.house_rules.split('\n').filter(l => l.trim()).map((line, i) => {
+                const text = line.replace(/^[-•*]\s*/, '')
+                const isNo = text.toLowerCase().includes('interdit') || text.toLowerCase().includes('pas de') || text.toLowerCase().includes('no ')
+                return (
+                  <div key={i} className="flex gap-2 items-start">
+                    <span className="text-sm mt-0.5 shrink-0">{isNo ? '❌' : '✅'}</span>
+                    <p className="text-sm" style={{ color: '#1A1A1A' }}>{text}</p>
+                  </div>
+                )
+              })}
             </div>
           </InfoCard>
         )}
-
-        {rules.length > 0 && (
-          <InfoCard title="Informations pratiques" emoji="ℹ️">
+        {[
+          p?.noise_rules   && { icon: '🔕', text: p.noise_rules },
+          p?.smoking_rules && { icon: '🚬', text: p.smoking_rules },
+          p?.pet_rules     && { icon: '🐾', text: p.pet_rules },
+        ].filter(Boolean).length > 0 && (
+          <InfoCard title="Règles spécifiques" emoji="ℹ️">
             <div className="space-y-3">
-              {rules.map((r, i) => (
-                <div key={i} className="flex gap-3 items-start pb-3" style={{ borderBottom: i < rules.length - 1 ? '1px solid #F2F0EC' : 'none' }}>
-                  <span className="text-lg shrink-0">{r.icon}</span>
-                  <p className="text-sm" style={{ color: '#1A1A1A' }}>{r.text}</p>
-                </div>
-              ))}
+              {[
+                p?.noise_rules   && { icon: '🔕', text: p.noise_rules },
+                p?.smoking_rules && { icon: '🚬', text: p.smoking_rules },
+                p?.pet_rules     && { icon: '🐾', text: p.pet_rules },
+              ].filter(Boolean).map((r, i) => {
+                const rule = r as { icon: string; text: string }
+                return (
+                  <div key={i} className="flex gap-3 items-start">
+                    <span className="text-xl shrink-0">{rule.icon}</span>
+                    <p className="text-sm" style={{ color: '#1A1A1A' }}>{rule.text}</p>
+                  </div>
+                )
+              })}
             </div>
           </InfoCard>
         )}
-
-        {/* Heure de silence en grand */}
         {p?.noise_rules && (
           <div className="rounded-2xl p-5 text-center shadow-sm" style={{ background: '#FFF3E0', border: '1px solid #FFCC80' }}>
-            <p className="text-2xl font-bold mb-1" style={{ color: '#E65100', fontFamily: 'var(--font-heading, serif)' }}>
-              🔕 Silence après 22h
-            </p>
-            <p className="text-xs" style={{ color: '#BF360C' }}>Merci de respecter le voisinage</p>
+            <p className="text-xl font-bold" style={{ color: '#E65100' }}>🔕 Silence après 22h</p>
+            <p className="text-xs mt-1" style={{ color: '#BF360C' }}>Merci de respecter le voisinage</p>
           </div>
         )}
       </div>
     )
   }
 
+  // ── Section Quartier ──────────────────────────────────────────────────────
+
   function SectionNeighborhood() {
+    const nearbyLines = (p?.nearby_info ?? '').split('\n').filter(l => l.trim())
     return (
       <div className="space-y-4">
-        {p?.nearby_info && (
-          <InfoCard title="Commerces & Services" emoji="🏪">
+        {nearbyLines.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#999999' }}>
+              🏪 Commerces & Services
+            </p>
             <div className="space-y-2">
-              {p.nearby_info.split('\n').filter(l => l.trim()).map((line, i) => (
-                <div key={i} className="flex gap-2 items-start">
-                  <span className="text-sm mt-0.5 shrink-0">📍</span>
+              {nearbyLines.map((line, i) => {
+                const clean = line.replace(/^[-•*]\s*/, '')
+                return (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl shadow-sm"
+                    style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+                    <span className="text-lg shrink-0">📍</span>
+                    <p className="flex-1 text-sm" style={{ color: '#1A1A1A' }}>{clean}</p>
+                    <MapsBtn query={clean} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {p?.bakery_nearby && (
+          <InfoCard title="Boulangerie & Épicerie" emoji="🥐">
+            <div className="flex items-center gap-3">
+              <p className="flex-1 text-sm" style={{ color: '#1A1A1A' }}>{p.bakery_nearby}</p>
+              <MapsBtn query={p.bakery_nearby} />
+            </div>
+          </InfoCard>
+        )}
+
+        {p?.pharmacy_nearby && (
+          <InfoCard title="Pharmacie" emoji="💊">
+            <div className="flex items-center gap-3">
+              <p className="flex-1 text-sm" style={{ color: '#1A1A1A' }}>{p.pharmacy_nearby}</p>
+              <MapsBtn query={p.pharmacy_nearby} />
+            </div>
+          </InfoCard>
+        )}
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#999999' }}>
+            🚗 Services en ligne
+          </p>
+          <div className="space-y-2">
+            {[
+              { name: 'Jumia Food', emoji: '🍕', desc: 'Livraison de repas à domicile', url: 'https://food.jumia.ma' },
+              { name: 'InDrive',    emoji: '🚗', desc: 'Taxi & livraison',              url: 'https://indriver.com'  },
+            ].map(item => (
+              <a key={item.name} href={item.url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-3 p-4 rounded-xl shadow-sm"
+                style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+                <span className="text-2xl">{item.emoji}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{item.name}</p>
+                  <p className="text-xs" style={{ color: '#999999' }}>{item.desc}</p>
+                </div>
+                <ExternalLink className="h-4 w-4 shrink-0" style={{ color: '#999999' }} />
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {address && (
+          <div className="rounded-2xl overflow-hidden shadow-sm" style={{ height: 220, border: '1px solid #E8E4DC' }}>
+            <iframe src={`https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed&z=14`}
+              className="w-full h-full border-0" loading="lazy" />
+          </div>
+        )}
+
+        {!nearbyLines.length && !p?.bakery_nearby && <Empty text="Informations quartier bientôt disponibles." />}
+      </div>
+    )
+  }
+
+  // ── Section Restaurants ───────────────────────────────────────────────────
+
+  function SectionRestaurants() {
+    const keywords = ['restaurant', 'café', 'coffee', 'pizza', 'burger', 'repas', 'manger', 'cuisine', 'tajine', 'couscous', 'grill', 'snack', 'brasserie', 'trattoria']
+    const restaurantLines = (p?.nearby_info ?? '').split('\n')
+      .filter(l => keywords.some(kw => l.toLowerCase().includes(kw)))
+      .map(l => l.replace(/^[-•*]\s*/, ''))
+
+    const fromField = (p?.restaurants_nearby ?? '').split('\n').filter(l => l.trim())
+    const allLines = [...new Set([...fromField, ...restaurantLines])].filter(Boolean)
+
+    return (
+      <div className="space-y-4">
+        {allLines.length > 0 ? (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#999999' }}>
+              🍽️ Restaurants à proximité
+            </p>
+            <div className="space-y-2">
+              {allLines.map((line, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl shadow-sm"
+                  style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+                  <span className="text-xl shrink-0">🍽️</span>
+                  <p className="flex-1 text-sm" style={{ color: '#1A1A1A' }}>{line}</p>
+                  <MapsBtn query={line} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl p-6 text-center shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+            <p className="text-sm mb-3" style={{ color: '#666666' }}>Découvrez les restaurants du quartier</p>
+            <a href={`https://www.google.com/maps/search/restaurants+${encodeURIComponent(city)}`}
+              target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl"
+              style={{ background: '#C4A044', color: '#fff' }}>
+              <MapPin className="h-4 w-4" />Voir sur Maps
+            </a>
+          </div>
+        )}
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#999999' }}>
+            🛵 Commander en ligne
+          </p>
+          <div className="space-y-2">
+            {[
+              { name: 'Jumia Food', emoji: '🍕', desc: 'Livraison rapide à domicile', url: 'https://food.jumia.ma' },
+              { name: 'InDrive',    emoji: '🛵', desc: 'Livraison & courses',          url: 'https://indriver.com'  },
+            ].map(item => (
+              <a key={item.name} href={item.url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-3 p-4 rounded-xl shadow-sm"
+                style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+                <span className="text-2xl">{item.emoji}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{item.name}</p>
+                  <p className="text-xs" style={{ color: '#999999' }}>{item.desc}</p>
+                </div>
+                <ExternalLink className="h-4 w-4 shrink-0" style={{ color: '#999999' }} />
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Section Transport ─────────────────────────────────────────────────────
+
+  function SectionTransport() {
+    return (
+      <div className="space-y-4">
+        {p?.transport_info && (
+          <InfoCard title="Transports locaux" emoji="🚌">
+            <div className="space-y-2">
+              {p.transport_info.split('\n').filter(l => l.trim()).map((line, i) => (
+                <div key={i} className="flex gap-2">
+                  <span className="shrink-0 mt-0.5 font-bold" style={{ color: '#C4A044' }}>›</span>
                   <p className="text-sm" style={{ color: '#1A1A1A' }}>{line.replace(/^[-•*]\s*/, '')}</p>
                 </div>
               ))}
             </div>
           </InfoCard>
         )}
-        {p?.bakery_nearby && (
-          <InfoCard title="Boulangerie / Épicerie" emoji="🥐">
-            <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A1A1A' }}>{p.bakery_nearby}</p>
-          </InfoCard>
-        )}
-        {p?.local_events && (
-          <InfoCard title="À ne pas manquer" emoji="🎭">
-            <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A1A1A' }}>{p.local_events}</p>
-          </InfoCard>
-        )}
-        {address && (
-          <div className="rounded-2xl overflow-hidden shadow-sm" style={{ height: 250, border: '1px solid #E8E4DC' }}>
-            <iframe
-              src={`https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed&z=14`}
-              className="w-full h-full border-0" loading="lazy"
-            />
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#999999' }}>
+            🚕 Réserver un taxi
+          </p>
+          <div className="space-y-2">
+            <a href="https://indriver.com" target="_blank" rel="noreferrer"
+              className="flex items-center gap-3 p-4 rounded-xl shadow-sm"
+              style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+              <span className="text-2xl">🚗</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>InDrive</p>
+                <p className="text-xs" style={{ color: '#999999' }}>Taxi économique — prix négocié</p>
+              </div>
+              <ExternalLink className="h-4 w-4 shrink-0" style={{ color: '#999999' }} />
+            </a>
+            <div className="flex items-center gap-3 p-4 rounded-xl shadow-sm"
+              style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+              <span className="text-2xl">🚕</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>Petit taxi</p>
+                <p className="text-xs" style={{ color: '#999999' }}>Taxis locaux disponibles partout</p>
+              </div>
+            </div>
           </div>
-        )}
-        {!p?.nearby_info && !p?.bakery_nearby && !p?.local_events && (
-          <Empty text="Informations quartier bientôt disponibles." />
+        </div>
+
+        {p?.concierge_phone && (
+          <InfoCard title="Navette & Transferts" emoji="✈️">
+            <p className="text-sm mb-3" style={{ color: '#666666' }}>
+              Votre conciergerie organise transferts aéroport et navettes sur demande.
+            </p>
+            <a href={`https://wa.me/${p.concierge_phone.replace(/\D/g, '')}`}
+              target="_blank" rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(37,211,102,0.10)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366' }}>
+              <MessageCircle className="h-4 w-4" />Demander via WhatsApp
+            </a>
+          </InfoCard>
         )}
       </div>
     )
   }
 
-  function SectionEmergency() {
-    const emergencyNumbers = [
-      { label: 'Police / Gendarmerie', phone: p?.local_police_number ?? '19', icon: '🚔' },
-      { label: 'SAMU / Ambulance',     phone: '150',                          icon: '🚑' },
-      { label: 'Pompiers',             phone: '15',                           icon: '🚒' },
-    ]
+  // ── Section Visites ───────────────────────────────────────────────────────
+
+  function SectionVisits() {
     return (
       <div className="space-y-4">
-        {/* Numéros d'urgence — fond rouge clair */}
-        <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: '#FFF5F5', border: '1px solid #FFCDD2' }}>
+        {p?.local_events ? (
+          <InfoCard title="À ne pas manquer" emoji="🎭">
+            <div className="space-y-2">
+              {p.local_events.split('\n').filter(l => l.trim()).map((line, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <span className="text-sm shrink-0 mt-0.5">🌟</span>
+                  <p className="text-sm" style={{ color: '#1A1A1A' }}>{line.replace(/^[-•*]\s*/, '')}</p>
+                </div>
+              ))}
+            </div>
+          </InfoCard>
+        ) : (
+          <Empty text="Informations touristiques bientôt disponibles." />
+        )}
+
+        {city && (
+          <InfoCard title={`Explorer ${city}`} emoji="🗺️">
+            <a href={`https://www.google.com/maps/search/attractions+${encodeURIComponent(city)}`}
+              target="_blank" rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold"
+              style={{ background: '#C4A044', color: '#fff' }}>
+              <MapPin className="h-4 w-4" />Voir les sites touristiques
+            </a>
+          </InfoCard>
+        )}
+      </div>
+    )
+  }
+
+  // ── Section Urgences ──────────────────────────────────────────────────────
+
+  function SectionEmergency() {
+    return (
+      <div className="space-y-4">
+
+        {/* 1 — Alma Keys — fond or */}
+        {(p?.concierge_phone || p?.backup_phone) && (
+          <div className="rounded-2xl overflow-hidden shadow-sm"
+            style={{ background: '#FFFBF0', border: '1px solid #F0D080' }}>
+            <div className="px-5 pt-4 pb-2" style={{ borderBottom: '1px solid #F0D080' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#A88830' }}>
+                🏠 Votre conciergerie Alma Keys
+              </p>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {p?.concierge_phone && (
+                <div>
+                  <p className="text-xs font-medium mb-2" style={{ color: '#A88830' }}>Concierge principal</p>
+                  <div className="flex gap-2">
+                    <a href={`tel:${p.concierge_phone}`}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
+                      style={{ background: '#F8F7F5', border: '1px solid #E8E4DC', color: '#1A1A1A' }}>
+                      <Phone className="h-4 w-4" />Appeler
+                    </a>
+                    <a href={`https://wa.me/${p.concierge_phone.replace(/\D/g, '')}`}
+                      target="_blank" rel="noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
+                      style={{ background: 'rgba(37,211,102,0.10)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366' }}>
+                      <MessageCircle className="h-4 w-4" />WhatsApp
+                    </a>
+                  </div>
+                </div>
+              )}
+              {p?.backup_phone && (
+                <div>
+                  <p className="text-xs font-medium mb-2" style={{ color: '#A88830' }}>Numéro de secours</p>
+                  <a href={`tel:${p.backup_phone}`}
+                    className="flex items-center gap-3 py-3 px-4 rounded-xl"
+                    style={{ background: '#F8F7F5', border: '1px solid #E8E4DC' }}>
+                    <Phone className="h-4 w-4 shrink-0" style={{ color: '#C4A044' }} />
+                    <span className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{p.backup_phone}</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 2 — Urgences locales — fond rouge */}
+        <div className="rounded-2xl overflow-hidden shadow-sm"
+          style={{ background: '#FFF5F5', border: '1px solid #FFCDD2' }}>
           <div className="px-5 pt-4 pb-2" style={{ borderBottom: '1px solid #FFCDD2' }}>
             <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#C62828' }}>
               🆘 Numéros d'urgence
             </p>
           </div>
           <div className="divide-y" style={{ borderColor: '#FFCDD2' }}>
-            {emergencyNumbers.map(({ label, phone, icon }) => (
+            {[
+              { label: 'Police / Gendarmerie', phone: '19',  icon: '🚔' },
+              { label: 'SAMU / Urgences',      phone: '150', icon: '🚑' },
+              { label: 'Pompiers',             phone: '15',  icon: '🚒' },
+            ].map(({ label, phone, icon }) => (
               <div key={label} className="px-5 py-4 flex items-center gap-4">
                 <span className="text-3xl">{icon}</span>
                 <div className="flex-1">
@@ -531,20 +895,33 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
           </div>
         </div>
 
-        {/* Contact Alma Keys */}
-        {(p?.concierge_phone || p?.backup_phone) && (
-          <InfoCard title="Votre concierge Alma Keys" emoji="🏠">
-            {p?.concierge_phone && (
-              <div className="flex gap-2 mb-3">
-                <ActionBtn href={`tel:${p.concierge_phone}`} icon={<Phone className="h-4 w-4" />} label={p.concierge_phone} variant="ghost" />
-                <ActionBtn href={`https://wa.me/${p.concierge_phone.replace(/\D/g, '')}`} icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" variant="green" />
-              </div>
-            )}
-            {p?.backup_phone && (
-              <a href={`tel:${p.backup_phone}`} className="text-sm flex items-center gap-2" style={{ color: '#666666' }}>
-                <Phone className="h-3.5 w-3.5" /> Numéro de secours : {p.backup_phone}
-              </a>
-            )}
+        {/* 3 — Contacts utiles (hôpital, pharmacie) */}
+        {p?.emergency_contacts && (
+          <InfoCard title="Hôpital & Contacts utiles" emoji="🏥">
+            <div className="space-y-3">
+              {p.emergency_contacts.split('\n').filter(l => l.trim()).map((line, i) => {
+                const phoneMatch = line.match(/(\+?[\d\s\-().]{7,})/)?.[1]?.trim()
+                const label = line.replace(/(\+?[\d\s\-().]{7,})/, '').replace(/[-:·|]+$/, '').trim()
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-xl shrink-0">📞</span>
+                    <div className="flex-1 min-w-0">
+                      {label && <p className="text-xs" style={{ color: '#666666' }}>{label}</p>}
+                      <p className="text-sm font-bold" style={{ color: '#1A1A1A' }}>
+                        {phoneMatch ?? line}
+                      </p>
+                    </div>
+                    {phoneMatch && (
+                      <a href={`tel:${phoneMatch.replace(/[\s()-]/g, '')}`}
+                        className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+                        style={{ background: '#E8F5E9', color: '#2E7D32' }}>
+                        <Phone className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </InfoCard>
         )}
 
@@ -553,32 +930,39 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
             <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A1A1A' }}>{p.emergency_procedure}</p>
           </InfoCard>
         )}
-        {p?.emergency_contacts && (
-          <InfoCard title="Contacts utiles" emoji="📞">
-            <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A1A1A' }}>{p.emergency_contacts}</p>
-          </InfoCard>
-        )}
       </div>
     )
   }
 
+  // ── Section Départ ────────────────────────────────────────────────────────
+
   function SectionCheckout() {
-    const checklistItems = [
-      'Fermer tous les robinets et fenêtres',
-      'Éteindre la climatisation / chauffage',
-      'Rassembler vos affaires personnelles',
-      'Laisser les clés à l\'emplacement indiqué',
-      'Mettre les poubelles dans les bacs prévus',
-      'Laisser le logement en bon état',
+    const keyNote = p?.key_box_location
+      ? `Déposer les clés dans la boîte à clé (${p.key_box_location})`
+      : 'Laisser les clés sur la table'
+
+    const items = [
+      'Fermer toutes les fenêtres et volets',
+      'Éteindre climatisation et chauffage',
+      'Éteindre toutes les lumières',
+      'Fermer les robinets',
+      'Vider le réfrigérateur',
+      'Déposer les poubelles dans le local',
+      keyNote,
+      'Vérifier que vous n\'avez rien oublié',
     ]
+
+    const doneCount = Object.values(checklistDone).filter(Boolean).length
+
     return (
       <div className="space-y-4">
+        {/* Heure de départ */}
         {p?.check_out_time && (
-          <div className="rounded-2xl p-6 text-center shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+          <div className="rounded-2xl p-7 text-center shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
             <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#999999' }}>
               Heure de départ
             </p>
-            <p className="text-5xl font-light" style={{ color: '#C4A044', fontFamily: 'var(--font-heading, serif)' }}>
+            <p className="text-6xl font-light" style={{ color: '#C4A044', fontFamily: 'var(--font-heading, serif)' }}>
               {p.check_out_time}
             </p>
             <p className="text-xs mt-2" style={{ color: '#666666' }}>Merci de respecter l'heure de départ</p>
@@ -586,32 +970,38 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
         )}
 
         {/* Checklist interactive */}
-        <InfoCard title="Checklist avant de partir" emoji="✅">
-          <div className="space-y-3">
-            {checklistItems.map((item, i) => (
-              <div key={i}
-                className="flex items-center gap-3 cursor-pointer"
+        <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+          <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid #F2F0EC' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider flex items-center gap-2" style={{ color: '#999999' }}>
+              ✅ Checklist avant de partir
+            </p>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={{
+                background: doneCount === items.length ? '#E8F5E9' : '#F3F4F6',
+                color: doneCount === items.length ? '#2E7D32' : '#666666',
+              }}>
+              {doneCount}/{items.length}
+            </span>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            {items.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 cursor-pointer"
                 onClick={() => setChecklistDone(prev => ({ ...prev, [i]: !prev[i] }))}>
-                <div className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center transition-all"
+                <div className="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center transition-all"
                   style={{
                     background: checklistDone[i] ? '#C4A044' : '#fff',
-                    border: `2px solid ${checklistDone[i] ? '#C4A044' : '#C8C0B0'}`,
+                    border: `2px solid ${checklistDone[i] ? '#C4A044' : '#D0C8B8'}`,
                   }}>
-                  {checklistDone[i] && <Check className="h-3 w-3 text-white" />}
+                  {checklistDone[i] && <Check className="h-3.5 w-3.5 text-white" />}
                 </div>
-                <p className="text-sm" style={{ color: checklistDone[i] ? '#999999' : '#1A1A1A', textDecoration: checklistDone[i] ? 'line-through' : 'none' }}>
+                <p className="text-sm flex-1"
+                  style={{ color: checklistDone[i] ? '#B0A898' : '#1A1A1A', textDecoration: checklistDone[i] ? 'line-through' : 'none' }}>
                   {item}
                 </p>
               </div>
             ))}
           </div>
-        </InfoCard>
-
-        {p?.inventory_notes && (
-          <InfoCard title="Procédure de départ" emoji="📋">
-            <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A1A1A' }}>{p.inventory_notes}</p>
-          </InfoCard>
-        )}
+        </div>
 
         {!lateSent ? (
           <button onClick={requestLateCheckout}
@@ -620,7 +1010,8 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
             🕐 Demander un late check-out
           </button>
         ) : (
-          <div className="p-4 rounded-xl text-sm text-center" style={{ background: 'rgba(46,125,82,0.08)', color: '#2E7D52', border: '1px solid rgba(46,125,82,0.2)' }}>
+          <div className="p-4 rounded-xl text-sm text-center"
+            style={{ background: 'rgba(46,125,82,0.08)', color: '#2E7D52', border: '1px solid rgba(46,125,82,0.2)' }}>
             ✓ Votre demande a été envoyée. Nous vous répondons rapidement.
           </div>
         )}
@@ -628,69 +1019,7 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
     )
   }
 
-  function SectionExtras() {
-    if (upsells.length === 0) return <Empty text="Aucun service disponible pour ce logement." />
-    return (
-      <div className="space-y-3">
-        {upsells.map(u => (
-          <div key={u.id} className="rounded-2xl p-4 shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
-            <div className="flex items-start gap-3">
-              <span className="text-3xl shrink-0">{u.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{u.name}</p>
-                {u.description && <p className="text-xs mt-0.5" style={{ color: '#666666' }}>{u.description}</p>}
-                {u.price > 0 && <p className="text-xs mt-1 font-semibold" style={{ color: '#C4A044' }}>{u.price} {u.currency}</p>}
-                {u.price === 0 && <p className="text-xs mt-1" style={{ color: '#999999' }}>Prix sur demande</p>}
-              </div>
-              {extraSent[u.id] ? (
-                <span className="text-xs px-2 py-1 rounded-full font-medium shrink-0" style={{ background: 'rgba(46,125,82,0.10)', color: '#2E7D52' }}>✓ Envoyé</span>
-              ) : (
-                <button onClick={() => { setExtraOpen(u.id); setExtraQty(1); setExtraNote('') }}
-                  className="shrink-0 text-xs px-3 py-1.5 rounded-xl font-semibold"
-                  style={{ background: 'rgba(196,160,68,0.10)', color: '#A88830', border: '1px solid rgba(196,160,68,0.25)' }}>
-                  Demander
-                </button>
-              )}
-            </div>
-            {extraOpen === u.id && (
-              <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid #F2F0EC' }}>
-                <div className="flex items-center gap-3">
-                  <p className="text-xs" style={{ color: '#666666' }}>Quantité</p>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setExtraQty(q => Math.max(1, q - 1))}
-                      className="w-7 h-7 rounded-full text-sm font-bold flex items-center justify-center"
-                      style={{ background: '#F8F7F5', border: '1px solid #E8E4DC' }}>−</button>
-                    <span className="w-6 text-center text-sm font-semibold">{extraQty}</span>
-                    <button onClick={() => setExtraQty(q => q + 1)}
-                      className="w-7 h-7 rounded-full text-sm font-bold flex items-center justify-center"
-                      style={{ background: '#F8F7F5', border: '1px solid #E8E4DC' }}>+</button>
-                  </div>
-                </div>
-                <textarea
-                  value={extraNote}
-                  onChange={e => setExtraNote(e.target.value)}
-                  placeholder="Note ou précision (optionnel)…"
-                  rows={2}
-                  className="w-full text-sm rounded-xl px-3 py-2 resize-none outline-none"
-                  style={{ border: '1px solid #E8E4DC', color: '#1A1A1A' }}
-                />
-                <div className="flex gap-2">
-                  <button onClick={() => setExtraOpen(null)}
-                    className="flex-1 py-2 rounded-xl text-sm"
-                    style={{ border: '1px solid #E8E4DC', color: '#666666' }}>Annuler</button>
-                  <button onClick={() => sendExtra(u)} disabled={sendingExtra}
-                    className="flex-1 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
-                    style={{ background: '#C4A044', color: '#FFFFFF' }}>
-                    {sendingExtra ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Envoyer la demande'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    )
-  }
+  // ── Section Messages ──────────────────────────────────────────────────────
 
   function SectionMessages() {
     return (
@@ -701,7 +1030,7 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
           </p>
         </div>
         <div className="flex-1 space-y-3 min-h-[200px]">
-          {messages.length === 0 && <Empty text="Aucun message pour le moment. Envoyez-nous un message !" />}
+          {messages.length === 0 && <Empty text="Aucun message. Envoyez-nous un message !" />}
           {messages.map(m => (
             <div key={m.id} className={`flex ${m.direction === 'guest' ? 'justify-end' : 'justify-start'}`}>
               <div className="max-w-[80%] rounded-2xl px-4 py-3 shadow-sm"
@@ -740,80 +1069,71 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
     )
   }
 
-  function SectionReservation() {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-2xl p-5 shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#C4A044' }}>{res.platform}</p>
-          <p className="text-xl font-light mb-1" style={{ fontFamily: 'var(--font-heading, serif)', color: '#1A1A1A' }}>{p?.name ?? '—'}</p>
-          {p?.city && <p className="text-sm mb-4" style={{ color: '#666666' }}>📍 {p.city}</p>}
-          <div className="grid grid-cols-2 gap-3">
-            {checkIn && (
-              <div className="p-3 rounded-xl" style={{ background: '#F8F7F5' }}>
-                <p className="text-[10px] font-semibold uppercase mb-1" style={{ color: '#999999' }}>Check-in</p>
-                <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{format(checkIn, 'dd MMM yyyy', { locale: fr })}</p>
-                {p?.check_in_time && <p className="text-xs" style={{ color: '#666666' }}>{p.check_in_time}</p>}
-              </div>
-            )}
-            {checkOut && (
-              <div className="p-3 rounded-xl" style={{ background: '#F8F7F5' }}>
-                <p className="text-[10px] font-semibold uppercase mb-1" style={{ color: '#999999' }}>Check-out</p>
-                <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{format(checkOut, 'dd MMM yyyy', { locale: fr })}</p>
-                {p?.check_out_time && <p className="text-xs" style={{ color: '#666666' }}>{p.check_out_time}</p>}
-              </div>
-            )}
-          </div>
-          {nights !== null && (
-            <p className="text-xs mt-3 pt-3" style={{ color: '#666666', borderTop: '1px solid #F2F0EC' }}>
-              <span className="font-semibold" style={{ color: '#1A1A1A' }}>{nights}</span> nuit{nights > 1 ? 's' : ''}
-              {res.num_guests ? ` · ${res.num_guests} voyageur${res.num_guests > 1 ? 's' : ''}` : ''}
-            </p>
-          )}
-        </div>
-        {p?.concierge_phone && (
-          <div className="flex gap-2">
-            <ActionBtn href={`tel:${p.concierge_phone}`} icon={<Phone className="h-4 w-4" />} label="Appeler" variant="ghost" />
-            <ActionBtn href={`https://wa.me/${p.concierge_phone.replace(/\D/g, '')}`} icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" variant="green" />
-          </div>
-        )}
-      </div>
-    )
-  }
+  // ── Section Services ──────────────────────────────────────────────────────
 
-  function SectionReviews() {
-    if (!isPast) return (
-      <div className="rounded-2xl p-8 text-center shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
-        <Star className="h-8 w-8 mx-auto mb-3" style={{ color: '#E8E4DC' }} />
-        <p className="text-sm" style={{ color: '#999999' }}>Cette section sera disponible après votre départ.</p>
-      </div>
-    )
+  function SectionExtras() {
+    if (upsells.length === 0) return <Empty text="Aucun service disponible pour ce logement." />
     return (
-      <div className="space-y-4">
-        <div className="rounded-2xl p-6 text-center shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
-          <div className="text-5xl mb-3">⭐</div>
-          <p className="text-lg font-light mb-1" style={{ fontFamily: 'var(--font-heading, serif)', color: '#1A1A1A' }}>
-            Votre avis compte beaucoup !
-          </p>
-          <p className="text-sm" style={{ color: '#666666' }}>Cela prend moins de 2 minutes et nous aide énormément.</p>
-        </div>
-        {[
-          { label: 'Airbnb', url: p?.airbnb_review_url, emoji: '🏠' },
-          { label: 'Booking.com', url: p?.booking_review_url, emoji: '🌐' },
-          { label: 'Google', url: p?.google_review_url, emoji: '⭐' },
-        ].filter(item => item.url).map(({ label, url, emoji }) => (
-          <a key={label} href={url!} target="_blank" rel="noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-sm font-semibold shadow-sm"
-            style={{ background: '#FFFFFF', border: '1px solid #E8E4DC', color: '#1A1A1A' }}>
-            <span className="text-lg">{emoji}</span> {label} <ExternalLink className="h-3.5 w-3.5 ml-1" style={{ color: '#999999' }} />
-          </a>
+      <div className="space-y-3">
+        {upsells.map(u => (
+          <div key={u.id} className="rounded-2xl p-4 shadow-sm" style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+            <div className="flex items-start gap-3">
+              <span className="text-3xl shrink-0">{u.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{u.name}</p>
+                {u.description && <p className="text-xs mt-0.5" style={{ color: '#666666' }}>{u.description}</p>}
+                {u.price > 0
+                  ? <p className="text-xs mt-1 font-semibold" style={{ color: '#C4A044' }}>{u.price} {u.currency}</p>
+                  : <p className="text-xs mt-1" style={{ color: '#999999' }}>Prix sur demande</p>}
+              </div>
+              {extraSent[u.id] ? (
+                <span className="text-xs px-2 py-1 rounded-full font-medium shrink-0"
+                  style={{ background: 'rgba(46,125,82,0.10)', color: '#2E7D52' }}>✓ Envoyé</span>
+              ) : (
+                <button onClick={() => { setExtraOpen(u.id); setExtraQty(1); setExtraNote('') }}
+                  className="shrink-0 text-xs px-3 py-1.5 rounded-xl font-semibold"
+                  style={{ background: 'rgba(196,160,68,0.10)', color: '#A88830', border: '1px solid rgba(196,160,68,0.25)' }}>
+                  Demander
+                </button>
+              )}
+            </div>
+            {extraOpen === u.id && (
+              <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid #F2F0EC' }}>
+                <div className="flex items-center gap-3">
+                  <p className="text-xs" style={{ color: '#666666' }}>Quantité</p>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setExtraQty(q => Math.max(1, q - 1))}
+                      className="w-7 h-7 rounded-full text-sm font-bold flex items-center justify-center"
+                      style={{ background: '#F8F7F5', border: '1px solid #E8E4DC' }}>−</button>
+                    <span className="w-6 text-center text-sm font-semibold">{extraQty}</span>
+                    <button onClick={() => setExtraQty(q => q + 1)}
+                      className="w-7 h-7 rounded-full text-sm font-bold flex items-center justify-center"
+                      style={{ background: '#F8F7F5', border: '1px solid #E8E4DC' }}>+</button>
+                  </div>
+                </div>
+                <textarea value={extraNote} onChange={e => setExtraNote(e.target.value)}
+                  placeholder="Note ou précision (optionnel)…" rows={2}
+                  className="w-full text-sm rounded-xl px-3 py-2 resize-none outline-none"
+                  style={{ border: '1px solid #E8E4DC', color: '#1A1A1A' }} />
+                <div className="flex gap-2">
+                  <button onClick={() => setExtraOpen(null)}
+                    className="flex-1 py-2 rounded-xl text-sm"
+                    style={{ border: '1px solid #E8E4DC', color: '#666666' }}>Annuler</button>
+                  <button onClick={() => sendExtra(u)} disabled={sendingExtra}
+                    className="flex-1 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
+                    style={{ background: '#C4A044', color: '#FFFFFF' }}>
+                    {sendingExtra ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Envoyer la demande'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         ))}
       </div>
     )
   }
 
-  function SectionContract() {
-    return <ContractTab token={token} lang={lang} />
-  }
+  function SectionContract() { return <ContractTab token={token} lang={lang} /> }
 
   function SectionIdentity() {
     if (!p?.syndic_required && p?.country !== 'MA') return <Empty text="Aucun document requis pour ce séjour." />
@@ -848,27 +1168,12 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
     )
   }
 
-  const SECTION_CONTENT: Record<TabId, React.ReactNode> = {
-    reservation:  <SectionReservation />,
-    checkin:      <SectionAccess />,
-    checkout:     <SectionCheckout />,
-    wifi:         <SectionWifi />,
-    guide:        <SectionGuide />,
-    neighborhood: <SectionNeighborhood />,
-    emergency:    <SectionEmergency />,
-    extras:       <SectionExtras />,
-    contract:     <SectionContract />,
-    identity:     <SectionIdentity />,
-    messages:     <SectionMessages />,
-    reviews:      <SectionReviews />,
-  }
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen" style={{ background: '#F8F7F5' }} dir={isRtl ? 'rtl' : 'ltr'}>
 
-      {/* ── Header fixe ─────────────────────────────────────────────────────── */}
+      {/* Header */}
       <header className="sticky top-0 z-30 shadow-sm" style={{ background: '#FFFFFF', borderBottom: '1px solid #E8E4DC' }}>
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
           {activeTab ? (
@@ -899,7 +1204,6 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
           </div>
 
           <div className="flex items-center gap-2">
-            {/* WhatsApp concierge */}
             {p?.concierge_phone && !activeTab && (
               <a href={`https://wa.me/${p.concierge_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
                 className="flex items-center justify-center w-8 h-8 rounded-full"
@@ -907,7 +1211,6 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
                 <MessageCircle className="h-4 w-4" />
               </a>
             )}
-            {/* Language switcher */}
             <div className="flex gap-0.5">
               {(['fr', 'en'] as Lang[]).map(l => (
                 <button key={l} onClick={() => setLang(l)}
@@ -921,13 +1224,12 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
         </div>
       </header>
 
-      {/* ── Contenu ─────────────────────────────────────────────────────────── */}
+      {/* Contenu */}
       <main className="max-w-lg mx-auto px-4 pb-12">
 
-        {/* HOME — Grille d'icônes */}
+        {/* HOME */}
         {!activeTab && (
           <div>
-            {/* Greeting */}
             {g?.full_name && (
               <div className="pt-5 pb-4 text-center">
                 <p className="text-xl font-light" style={{ fontFamily: 'var(--font-heading, serif)', color: '#1A1A1A' }}>
@@ -941,7 +1243,6 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
               </div>
             )}
 
-            {/* Code d'accès rapide */}
             {res.access_code && codeVisible && (
               <div className="mb-4 rounded-2xl p-4 flex items-center gap-4 shadow-sm"
                 style={{ background: '#FFFFFF', border: '2px solid #C4A044' }}>
@@ -950,39 +1251,67 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
                   <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#C4A044' }}>Code d'accès</p>
                   <p className="text-2xl font-bold font-mono tracking-widest" style={{ color: '#1A1A1A' }}>{res.access_code}</p>
                 </div>
-                <CopyBtn text={res.access_code} copied={copiedCode} onCopy={() => copy(res.access_code!, setCopiedCode)} />
+                <button onClick={() => copy(res.access_code!, setCopiedCode)}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg font-medium"
+                  style={{ background: copiedCode ? 'rgba(46,125,82,0.10)' : 'rgba(196,160,68,0.10)', color: copiedCode ? '#2E7D52' : '#A88830' }}>
+                  {copiedCode ? <><Check className="h-3.5 w-3.5" />Copié</> : <><Copy className="h-3.5 w-3.5" />Copier</>}
+                </button>
               </div>
             )}
 
-            {/* Grille navigation 3 colonnes */}
+            {/* Grille 12 items 4×3 */}
             <div className="grid grid-cols-3 gap-3 py-2">
-              {NAV_ITEMS.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+              {NAV_GRID.map(item => (
+                <button key={item.id} onClick={() => setActiveTab(item.id)}
                   className="relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all active:scale-95 shadow-sm"
                   style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
-                  <span className="text-3xl">{item.emoji}</span>
-                  <span className="text-[11px] font-medium text-center leading-tight"
-                    style={{ color: '#1A1A1A' }}>
+                  <span className="text-[40px] leading-none">{item.emoji}</span>
+                  <span className="text-[11px] font-medium text-center leading-tight" style={{ color: '#1A1A1A' }}>
                     {lang === 'en' ? item.labelEn : item.labelFr}
                   </span>
-                  {item.id === 'messages' && unreadCount > 0 && (
-                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
-                      style={{ background: '#C62828', color: '#fff' }}>
-                      {unreadCount}
-                    </span>
-                  )}
                 </button>
               ))}
+            </div>
+
+            {/* Messages seul centré */}
+            <div className="flex justify-center mt-3">
+              <button onClick={() => setActiveTab('messages')}
+                className="relative flex flex-col items-center justify-center gap-2 px-10 py-4 rounded-2xl transition-all active:scale-95 shadow-sm"
+                style={{ background: '#FFFFFF', border: '1px solid #E8E4DC' }}>
+                <span className="text-[40px] leading-none">💬</span>
+                <span className="text-[11px] font-medium" style={{ color: '#1A1A1A' }}>
+                  {lang === 'en' ? 'Messages' : 'Messages'}
+                </span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
+                    style={{ background: '#C62828', color: '#fff' }}>
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         )}
 
-        {/* SECTION — Contenu de l'onglet actif */}
+        {/* Section active */}
         {activeTab && (
           <div className="pt-5">
-            {SECTION_CONTENT[activeTab]}
+            {activeTab === 'checkin'      && <SectionAccess />}
+            {activeTab === 'wifi'         && <SectionWifi />}
+            {activeTab === 'equipment'    && <SectionEquipment />}
+            {activeTab === 'parking'      && <SectionParking />}
+            {activeTab === 'trash'        && <SectionTrash />}
+            {activeTab === 'guide'        && <SectionGuide />}
+            {activeTab === 'neighborhood' && <SectionNeighborhood />}
+            {activeTab === 'restaurants'  && <SectionRestaurants />}
+            {activeTab === 'transport'    && <SectionTransport />}
+            {activeTab === 'visits'       && <SectionVisits />}
+            {activeTab === 'checkout'     && <SectionCheckout />}
+            {activeTab === 'emergency'    && <SectionEmergency />}
+            {activeTab === 'messages'     && <SectionMessages />}
+            {activeTab === 'extras'       && <SectionExtras />}
+            {activeTab === 'contract'     && <SectionContract />}
+            {activeTab === 'identity'     && <SectionIdentity />}
           </div>
         )}
       </main>
@@ -990,7 +1319,7 @@ export function GuestPageClient({ token, reservation: res, upsells, initialMessa
   )
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Composant vide ────────────────────────────────────────────────────────────
 
 function Empty({ text }: { text: string }) {
   return (
