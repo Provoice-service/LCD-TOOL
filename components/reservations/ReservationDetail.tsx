@@ -681,6 +681,73 @@ export function ReservationDetail({ reservation: res, onUpdated }: ReservationDe
                 )}
               </div>
 
+              {/* ── Sous-section Documents voyageurs (onboarding) ────────── */}
+              {(res.identity_documents ?? []).length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Documents voyageurs (onboarding)
+                  </p>
+                  <div className="space-y-2">
+                    {(res.identity_documents ?? []).map((doc, idx) => {
+                      const status = doc.extraction_status ?? 'pending'
+                      const statusStyle: Record<string, { label: string; bg: string; color: string }> = {
+                        verified:      { label: 'Vérifié IA',          bg: '#E8F5E9', color: '#2E7D32' },
+                        manual_review: { label: 'Vérif. manuelle',      bg: '#FFF8E1', color: '#F57F17' },
+                        invalid:       { label: 'Invalide',             bg: '#FFEBEE', color: '#C62828' },
+                        expired:       { label: 'Expiré',               bg: '#FFEBEE', color: '#C62828' },
+                        poor_quality:  { label: 'Qualité insuff.',       bg: '#FFF3E0', color: '#E65100' },
+                        pending:       { label: 'En attente',           bg: '#F3F4F6', color: '#6B7280' },
+                      }
+                      const cfg = statusStyle[status] ?? statusStyle.pending
+                      return (
+                        <div key={idx} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm">
+                          {/* Miniature */}
+                          {doc.url ? (
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                              className="shrink-0 w-10 h-10 rounded-md overflow-hidden border"
+                              style={{ borderColor: '#E8E4DC' }}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={doc.url} alt="doc" className="w-full h-full object-cover" />
+                            </a>
+                          ) : (
+                            <div className="shrink-0 w-10 h-10 rounded-md border flex items-center justify-center"
+                              style={{ borderColor: '#E8E4DC', background: '#F8F7F5' }}>
+                              <IdCard className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm">
+                              Voyageur {doc.adult_index + 1}
+                              {doc.adult_name ? ` — ${doc.adult_name}` : ''}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {doc.doc_type === 'passeport' ? 'Passeport' :
+                               doc.doc_type === 'cni' ? 'CNI' :
+                               doc.doc_type === 'carte_sejour' ? 'Carte de séjour' :
+                               doc.doc_type ?? '—'}
+                              {doc.ai_result?.full_name ? ` · ${doc.ai_result.full_name}` : ''}
+                              {doc.validated_at
+                                ? ` · ${format(new Date(doc.validated_at), 'dd/MM/yy HH:mm', { locale: fr })}`
+                                : ''}
+                            </p>
+                          </div>
+                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                            style={{ background: cfg.bg, color: cfg.color }}>
+                            {cfg.label}
+                          </span>
+                          {doc.url && (
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                              className="shrink-0 text-muted-foreground hover:text-foreground">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* ── Sous-section Syndic ───────────────────────────────────── */}
               {syndicRequired && (
                 <div>

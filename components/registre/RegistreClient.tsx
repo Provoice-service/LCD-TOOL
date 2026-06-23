@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CheckCircle2, AlertTriangle, XCircle, Clock, Search, Filter } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, XCircle, Clock, Search, Filter, Eye, Download, X } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -15,8 +15,11 @@ interface AiResult {
   nationality: string | null
   document_number: string | null
   birth_date: string | null
+  expiry_date: string | null
   image_quality: string
   rejection_reason: string | null
+  name_matches?: boolean
+  name_match_confidence?: string
 }
 
 interface IdentityDoc {
@@ -82,12 +85,131 @@ function DocTypeLabel(type: string): string {
   return map[type] ?? type
 }
 
+// ── Modal visionneuse ──────────────────────────────────────────────────────────
+
+interface ModalDoc {
+  doc: IdentityDoc
+  guestName: string
+}
+
+function DocModal({ item, onClose }: { item: ModalDoc; onClose: () => void }) {
+  const { doc, guestName } = item
+  const ai = doc.ai_result
+  const status = (doc.extraction_status ?? 'pending') as AiStatus
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-3xl rounded-2xl overflow-hidden"
+        style={{ background: '#FFFFFF', boxShadow: '0 24px 48px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid #E8E4DC', background: '#F8F7F5' }}>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>
+              Document — Voyageur {doc.adult_index + 1}
+              {doc.adult_name ? ` (${doc.adult_name})` : ''}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: '#999999' }}>{guestName}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+            <X size={18} style={{ color: '#666666' }} />
+          </button>
+        </div>
+
+        {/* Corps */}
+        <div className="grid md:grid-cols-2 gap-0">
+          {/* Image */}
+          <div className="flex flex-col items-center justify-center p-5 gap-3"
+            style={{ borderRight: '1px solid #E8E4DC', background: '#FAFAFA', minHeight: '280px' }}>
+            {doc.url ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={doc.url} alt="Document d'identité"
+                  className="max-w-full max-h-64 rounded-lg object-contain"
+                  style={{ border: '1px solid #E8E4DC' }} />
+                <a href={doc.url} download target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-medium"
+                  style={{ background: '#F8F7F5', color: '#666666', border: '1px solid #E8E4DC' }}>
+                  <Download size={13} />
+                  Télécharger
+                </a>
+              </>
+            ) : (
+              <p className="text-sm" style={{ color: '#999999' }}>Aucune image disponible</p>
+            )}
+          </div>
+
+          {/* Données extraites */}
+          <div className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#999999' }}>
+                Données extraites
+              </p>
+              <StatusBadge status={status} />
+            </div>
+
+            {doc.doc_type && (
+              <Row label="Type" value={DocTypeLabel(doc.doc_type)} />
+            )}
+            {ai?.full_name && <Row label="Nom complet" value={ai.full_name} highlight />}
+            {ai?.document_number && <Row label="N° document" value={ai.document_number} />}
+            {ai?.birth_date && <Row label="Date de naissance" value={ai.birth_date} />}
+            {ai?.expiry_date && (
+              <Row label="Expiration" value={ai.expiry_date} warn={ai.is_expired === true} />
+            )}
+            {ai?.nationality && <Row label="Nationalité" value={ai.nationality} />}
+            {ai?.image_quality && (
+              <Row label="Qualité image" value={ai.image_quality}
+                warn={ai.image_quality !== 'bonne'} />
+            )}
+            {ai?.rejection_reason && (
+              <Row label="Motif rejet" value={ai.rejection_reason} warn />
+            )}
+            {ai?.name_match_confidence && ai.name_match_confidence !== 'exact' && (
+              <Row label="Correspondance nom"
+                value={
+                  ai.name_match_confidence === 'different' ? 'Nom différent !' :
+                  ai.name_match_confidence === 'probable' ? 'Probable' :
+                  'Illisible'
+                }
+                warn={ai.name_match_confidence === 'different' || ai.name_match_confidence === 'illisible'}
+              />
+            )}
+            {doc.validated_at && (
+              <p className="text-xs" style={{ color: '#BBBBBB', paddingTop: 4 }}>
+                Validé le {format(new Date(doc.validated_at), 'd MMM yyyy à HH:mm', { locale: fr })}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Row({ label, value, highlight, warn }: { label: string; value: string; highlight?: boolean; warn?: boolean }) {
+  return (
+    <div className="flex gap-2">
+      <span className="text-xs shrink-0 w-36" style={{ color: '#999999' }}>{label}</span>
+      <span className="text-xs font-medium"
+        style={{ color: warn ? '#C62828' : highlight ? '#1A1A1A' : '#555555' }}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
 // ── Composant principal ────────────────────────────────────────────────────────
 
 export function RegistreClient({ rows }: { rows: RegistreRow[] }) {
   const [search, setSearch]         = useState('')
   const [filterStatus, setFilter]   = useState<AiStatus | 'all'>('all')
   const [expandedId, setExpanded]   = useState<string | null>(null)
+  const [modalDoc, setModalDoc]     = useState<ModalDoc | null>(null)
 
   const filtered = rows.filter(r => {
     const q = search.toLowerCase()
@@ -115,6 +237,10 @@ export function RegistreClient({ rows }: { rows: RegistreRow[] }) {
   ]
 
   return (
+    <>
+    {/* Modal document */}
+    {modalDoc && <DocModal item={modalDoc} onClose={() => setModalDoc(null)} />}
+
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -260,16 +386,6 @@ export function RegistreClient({ rows }: { rows: RegistreRow[] }) {
                                   N° : {doc.ai_result.document_number}
                                 </p>
                               )}
-                              {doc.ai_result?.nationality && (
-                                <p className="text-xs" style={{ color: '#666666' }}>
-                                  Nationalité : {doc.ai_result.nationality}
-                                </p>
-                              )}
-                              {doc.ai_result?.birth_date && (
-                                <p className="text-xs" style={{ color: '#666666' }}>
-                                  Né(e) le : {doc.ai_result.birth_date}
-                                </p>
-                              )}
                               {doc.ai_result?.rejection_reason && (
                                 <p className="text-xs" style={{ color: '#C62828' }}>
                                   ⚠ {doc.ai_result.rejection_reason}
@@ -280,12 +396,16 @@ export function RegistreClient({ rows }: { rows: RegistreRow[] }) {
                                   Validé le {format(new Date(doc.validated_at), 'd MMM à HH:mm', { locale: fr })}
                                 </p>
                               )}
+
+                              {/* Bouton vue document */}
                               {doc.url && (
-                                <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                                  className="text-xs inline-block mt-1 font-medium"
-                                  style={{ color: '#C4A044' }}>
-                                  Voir le document ↗
-                                </a>
+                                <button
+                                  onClick={() => setModalDoc({ doc, guestName: r.guest?.full_name ?? '—' })}
+                                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg font-medium mt-1"
+                                  style={{ background: 'rgba(196,160,68,0.1)', color: '#A88830', border: '1px solid rgba(196,160,68,0.3)' }}>
+                                  <Eye size={11} />
+                                  Voir document
+                                </button>
                               )}
                             </div>
                           ))}
@@ -300,5 +420,6 @@ export function RegistreClient({ rows }: { rows: RegistreRow[] }) {
         </table>
       </div>
     </div>
+    </>
   )
 }

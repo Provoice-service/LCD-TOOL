@@ -326,7 +326,12 @@ export default function OnboardingWizard({ token, reservation, guest, property, 
       const valRes = await fetch(`/api/guest/${token}/validate-document`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ document_url: url, adult_name: docName, adult_index: index }),
+        body: JSON.stringify({
+          document_url: url,
+          adult_name: docName,
+          adult_index: index,
+          declared_name: docName,
+        }),
       })
       const valJson = await valRes.json() as {
         valid?: boolean; extraction_status?: string

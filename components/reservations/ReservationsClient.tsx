@@ -36,6 +36,24 @@ export interface ReservationRow {
   guest_page_sent: boolean
   onboarding_completed_at: string | null
   onboarding_step: number
+  identity_documents: Array<{
+    adult_index: number
+    adult_name?: string
+    doc_type?: string
+    url?: string
+    extraction_status?: string
+    validated_at?: string
+    ai_result?: {
+      full_name: string | null
+      document_number: string | null
+      birth_date: string | null
+      expiry_date: string | null
+      nationality: string | null
+      image_quality: string
+      is_expired: boolean | null
+      rejection_reason: string | null
+    }
+  }> | null
   guest: { id: string; full_name: string; phone: string | null; language: string } | null
   property: {
     id: string

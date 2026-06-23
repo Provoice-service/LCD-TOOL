@@ -7,7 +7,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
   const { data: res } = await svc
     .from('reservations')
-    .select('id, identity_documents')
+    .select('id, property_id, identity_documents')
     .eq('guest_page_token', token)
     .single()
 
@@ -22,7 +22,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (!file) return NextResponse.json({ error: 'file required' }, { status: 400 })
 
   const ext      = file.name.split('.').pop() ?? 'jpg'
-  const filename = `${token}/${adultIndex}_${Date.now()}.${ext}`
+  const ts       = Date.now()
+  const filename = `${res.id}/${adultIndex}_${ts}_${docType}.${ext}`
   const buffer   = Buffer.from(await file.arrayBuffer())
 
   const { data: upload, error: upErr } = await svc.storage
@@ -34,13 +35,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const { data: urlData } = svc.storage.from('guest-documents').getPublicUrl(upload.path)
   const url = urlData.publicUrl
 
-  // Append to identity_documents array
+  // ── Insérer dans guest_documents ───────────────────────────────────────────
+  await svc.from('guest_documents').upsert({
+    reservation_id:    res.id,
+    property_id:       (res as unknown as { property_id: string | null }).property_id,
+    guest_full_name:   adultName,
+    adult_index:       adultIndex,
+    document_type:     docType,
+    photo_url:         url,
+    extraction_status: 'pending',
+    extracted_data:    {},
+  }, { onConflict: 'reservation_id,adult_index' })
+
+  // ── Mettre à jour identity_documents (JSONB réservation) ──────────────────
   const existing = (res.identity_documents as object[] | null) ?? []
-  const newDoc = { adult_name: adultName, doc_type: docType, url, uploaded_at: new Date().toISOString(), adult_index: adultIndex }
-  const updated = [...existing.filter((d: unknown) => (d as { adult_index: number }).adult_index !== adultIndex), newDoc]
+  const newDoc = {
+    adult_name: adultName,
+    doc_type: docType,
+    url,
+    uploaded_at: new Date().toISOString(),
+    adult_index: adultIndex,
+  }
+  const updated = [
+    ...existing.filter((d: unknown) => (d as { adult_index: number }).adult_index !== adultIndex),
+    newDoc,
+  ]
 
   const resUpdate: Record<string, unknown> = { identity_documents: updated }
-  // Premier document : mettre aussi id_received + id_document_url
   if (adultIndex === 0) {
     resUpdate.id_received = true
     resUpdate.id_document_url = url
